@@ -140,10 +140,10 @@ export default function Header({ onUpload, onExport, onReset }: HeaderProps) {
       <div className="flex items-center gap-3">
         <div className="flex flex-col">
           <h1 className="font-mono text-base font-bold text-studio-accent tracking-widest drop-shadow-[0_0_10px_rgba(0,212,255,0.45)] leading-none">
-            AGNES
+            DavinciPic
           </h1>
           <span className="text-[9px] text-studio-text-dim -mt-0.5 tracking-widest uppercase">
-            AI Color Studio
+            AI Color Grading
           </span>
         </div>
       </div>
