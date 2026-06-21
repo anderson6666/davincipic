@@ -94,6 +94,15 @@ function APIKeySettings() {
               模型: agnes-2.0-flash
             </p>
 
+            <a
+              href="https://platform.agnes-ai.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2 text-center rounded-lg border border-studio-border bg-studio-surface text-xs text-studio-text-dim hover:text-studio-accent hover:border-studio-accent transition-all font-mono"
+            >
+              获取 API Key →
+            </a>
+
             {errorMsg && (
               <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded px-3 py-2">{errorMsg}</p>
             )}
