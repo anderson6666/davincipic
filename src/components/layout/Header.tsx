@@ -279,10 +279,8 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
 
         {/* 模式切换标签 */}
         <div className="hidden lg:flex items-center gap-0.5 ml-3 bg-studio-surface rounded-xl p-[3px] border border-studio-border relative overflow-hidden">
-          {/* 多线程选中时的流动光效 */}
-          {isBatchMode && (
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/10 via-violet-500/15 to-fuchsia-500/10 animate-pulse opacity-60" />
-          )}
+          {/* 始终存在的流动光效（选中时更亮） */}
+          <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/8 via-violet-500/10 to-fuchsia-500/8 transition-opacity duration-300 ${isBatchMode ? 'opacity-100 animate-pulse' : 'opacity-60'}`} />
           <button
             onClick={onToggleBatchMode}
             className={`relative px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all ${
@@ -298,11 +296,11 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
             className={`relative px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all flex items-center gap-1.5 ${
               isBatchMode
                 ? 'bg-gradient-to-r from-cyan-500 to-violet-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.03] active:scale-[0.97]'
-                : 'text-studio-text-dim hover:text-studio-text hover:bg-white/[0.04]'
+                : 'bg-gradient-to-r from-cyan-500/15 to-violet-500/15 text-cyan-300/70 font-medium shadow-sm shadow-cyan-500/10 hover:shadow-cyan-500/20 hover:scale-[1.02] hover:text-cyan-300 active:scale-[0.98]'
             }`}
           >
-            <Layers size={12} className={isBatchMode ? 'animate-pulse' : ''} />
-            <span className={isBatchMode ? '' : ''}>多线程</span>
+            <Layers size={12} className={isBatchMode ? 'animate-pulse' : 'animate-pulse opacity-60'} />
+            <span>多线程</span>
             {isBatchMode && (
               <span className="ml-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-white/80 animate-ping" />
             )}
