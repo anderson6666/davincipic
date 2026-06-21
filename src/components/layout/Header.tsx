@@ -90,21 +90,6 @@ function APIKeySettings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-studio-text-dim font-mono uppercase tracking-wider">API 地址</p>
-                <p className="text-xs text-studio-text font-mono mt-0.5">apihub.agnes-ai.com/v1</p>
-              </div>
-              <a
-                href="https://platform.agnes-ai.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg border border-studio-border bg-studio-surface text-xs text-studio-text-dim hover:text-studio-accent hover:border-studio-accent transition-all font-mono"
-              >
-                Platform →
-              </a>
-            </div>
-
             <p className="text-[10px] text-studio-text-muted">
               模型: agnes-2.0-flash
             </p>
