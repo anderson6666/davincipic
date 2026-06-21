@@ -23,9 +23,9 @@ const nodeIcons: Record<string, LucideIcon> = {
   noiseReduce: SlidersHorizontal,
 };
 
-/** 节点分类定义 */
-const NODE_CATEGORIES: { label: string; types: NodeType[] }[] = [
-  { label: '一级调色', types: ['primary'] },
+/** 节点分类定义（桌面端：隐藏一级调色） */
+const NODE_CATEGORIES: { label: string; types: NodeType[]; hidden?: boolean }[] = [
+  { label: '一级调色', types: ['primary'], hidden: true },
   { label: '一级校色', types: ['colorWheel', 'curves'] },
   { label: '二级调色', types: ['secondary'] },
   { label: '二级调色工具', types: ['qualifier', 'powerWindow', 'tracking'] },
@@ -80,11 +80,12 @@ export default function RightPanel({ mobile }: RightPanelProps) {
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[360px]'} bg-studio-panel ${mobile ? '' : 'border-l'} border-studio-border flex flex-col overflow-hidden`}>
-      {/* ===== 节点分类列表 ===== */}
-      <div className={`${mobile ? '' : 'border-b'} border-studio-border overflow-y-auto shrink-0`} style={{ maxHeight: mobile ? undefined : '40%' }}>
-        {NODE_CATEGORIES.map((cat) => (
-          <div key={cat.label} className={`px-${mobile ? '3' : '4'} py-2 ${mobile ? '' : 'border-b'} border-studio-border/50 last:border-b-0`}>
-            <p className={`text-[${mobile ? '10' : '11'}px] text-studio-text-muted mb-1.5 font-mono uppercase tracking-wider`}>
+      {/* ===== 节点分类列表（移动端完全隐藏） ===== */}
+      {!mobile && (
+      <div className="border-b border-studio-border overflow-y-auto shrink-0" style={{ maxHeight: '40%' }}>
+        {NODE_CATEGORIES.filter(c => !c.hidden).map((cat) => (
+          <div key={cat.label} className={`px-4 py-2 border-b border-studio-border/50 last:border-b-0`}>
+            <p className="text-[11px] text-studio-text-muted mb-1.5 font-mono uppercase tracking-wider">
               {cat.label}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -107,6 +108,7 @@ export default function RightPanel({ mobile }: RightPanelProps) {
           </div>
         ))}
       </div>
+      )}
 
       {/* ===== 节点编辑器区域 ===== */}
       <div className="flex-1 min-h-0" style={{ height: mobile ? '45%' : '55%' }}>

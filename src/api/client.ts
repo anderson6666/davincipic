@@ -162,7 +162,7 @@ export class AgnesAPIClient {
     const request: AgnesAPIRequest = {
       model: DEFAULT_MODEL,
       temperature: 0.3,
-      max_tokens: 2048,
+      max_tokens: 4096,
       ...(useJSONFormat && { response_format: { type: 'json_object' } }),
       messages: [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
