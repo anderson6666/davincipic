@@ -201,8 +201,6 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
 
     setProcessing(true);
     setReviewing(false);
-    startedAtRef.current = Date.now();
-    setCanStop(false);
 
     // 10个任务同时启动！真正的多线程并发
     await Promise.all(idleTasks.map((task) => processSingleTask(task)));
