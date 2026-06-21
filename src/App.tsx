@@ -5,6 +5,7 @@ import MainPanel from './components/layout/MainPanel';
 import BottomBar from './components/layout/BottomBar';
 import MobileNav from './components/layout/MobileNav';
 import RightPanel from './components/layout/RightPanel';
+import BatchPanel from './components/batch/BatchPanel';
 import { useImageLoader } from './hooks/useImageLoader';
 import { useRenderLoop } from './hooks/useRenderLoop';
 import { useExport } from './hooks/useExport';
@@ -17,6 +18,7 @@ type MobileTab = 'preview' | 'nodes' | 'ai';
 
 export default function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
+  const [isBatchMode, setIsBatchMode] = useState(false);
   const { loadImage, triggerFileInput, fileInputRef } = useImageLoader();
   const { exportAsPNG, exportAsJPEG } = useExport();
   const { forceRender } = useRenderLoop(); // 关键：监听节点变化 → 触发渲染引擎
@@ -29,11 +31,16 @@ export default function App() {
   const undo = useHistoryStore((s) => s.undo);
   const redo = useHistoryStore((s) => s.redo);
 
+  /** 切换批量模式 */
+  const toggleBatchMode = useCallback(() => {
+    setIsBatchMode((prev) => !prev);
+  }, []);
+
   /**
    * 将 AI 返回的 commands 自动创建为节点，并按顺序串联 edges
    */
   const applyCommands = useCallback((
-    commands: Array<{ nodeType: string; params: Record<string, any>; confidence: number; description: string }>,
+    commands: Array<{ nodeType: string; params: Record<string, unknown>; confidence: number; description: string }>,
     source: string,
   ) => {
     if (commands.length === 0) return;
@@ -43,7 +50,7 @@ export default function App() {
 
     for (const cmd of commands) {
       if (cmd.nodeType && cmd.confidence > 0.15) {
-        const id = addNode(cmd.nodeType as any, undefined, cmd.params);
+        const id = addNode(cmd.nodeType as Parameters<typeof addNode>[0], undefined, cmd.params);
         nodeIds.push(id);
         appliedCount++;
       }
@@ -108,7 +115,7 @@ export default function App() {
 
   // 导出
   const handleExport = useCallback((format: 'png' | 'jpeg') => {
-    format === 'png' ? exportAsPNG(1.0) : exportAsJPEG(0.92);
+    if (format === 'png') { exportAsPNG(1.0); } else { exportAsJPEG(0.92); }
   }, [exportAsPNG, exportAsJPEG]);
 
   // 重置
@@ -130,25 +137,38 @@ export default function App() {
   return (
     <div className="w-full h-full flex flex-col bg-studio-bg overflow-hidden">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-      <Header onUpload={triggerFileInput} onExport={handleExport} onReset={handleReset} />
+      <Header
+        onUpload={triggerFileInput}
+        onExport={handleExport}
+        onReset={handleReset}
+        isBatchMode={isBatchMode}
+        onToggleBatchMode={toggleBatchMode}
+      />
 
-      {/* ===== 桌面端布局 (lg+: ≥1024px) ===== */}
-      <div className="flex-1 flex overflow-hidden hidden lg:flex">
-        <Sidebar />
-        <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} />
-        <RightPanel />
-      </div>
-      <BottomBar className="hidden lg:flex" />
+      {/* ===== 批量模式视图 ===== */}
+      {isBatchMode ? (
+        <BatchPanel />
+      ) : (
+        <>
+          {/* ===== 桌面端布局 (lg+: ≥1024px) ===== */}
+          <div className="flex-1 flex overflow-hidden hidden lg:flex">
+            <Sidebar />
+            <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} />
+            <RightPanel />
+          </div>
+          <BottomBar className="hidden lg:flex" />
 
-      {/* ===== 移动端布局 (< lg: <1024px) ===== */}
-      <div className="flex-1 overflow-hidden lg:hidden min-h-0">
-        {mobileTab === 'preview' && <div className="w-full h-full"><Sidebar mobile /></div>}
-        {mobileTab === 'nodes' && <div className="w-full h-full"><RightPanel mobile /></div>}
-        {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile /></div>}
-      </div>
+          {/* ===== 移动端布局 (< lg: <1024px) ===== */}
+          <div className="flex-1 overflow-hidden lg:hidden min-h-0">
+            {mobileTab === 'preview' && <div className="w-full h-full"><Sidebar mobile /></div>}
+            {mobileTab === 'nodes' && <div className="w-full h-full"><RightPanel mobile /></div>}
+            {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile /></div>}
+          </div>
 
-      {/* 移动端底部导航 — 仅移动端显示 */}
-      <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} />
+          {/* 移动端底部导航 — 仅移动端显示 */}
+          <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} />
+        </>
+      )}
     </div>
   );
 }

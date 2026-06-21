@@ -1,11 +1,13 @@
 import type { AnalysisResult } from '../../types';
 import { agnesClient } from '../../api/client';
-import type { AgnesAPIResponse, AgnesAPIError } from '../../api/types';
+import type { AgnesAPIResponse } from '../../api/types';
+import { SYSTEM_PROMPTS } from '../../api/prompts';
+import { generateGradedImage } from './gradePreview';
 
 /** 调色命令（从 API 返回） */
 export interface GradingCommand {
   nodeType: string;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   confidence: number;
   description: string;
 }
@@ -64,13 +66,13 @@ function mapAnalysis(response: AgnesAPIResponse): AnalysisResult {
   }
 
   const validSceneTypes = ['portrait', 'landscape', 'interior', 'night', 'other'] as const;
-  const safeSceneType = validSceneTypes.includes(analysis.sceneType as any) ? analysis.sceneType : 'other';
+  const safeSceneType = validSceneTypes.includes(analysis.sceneType as typeof validSceneTypes[number]) ? analysis.sceneType : 'other';
 
   const validBrightness = ['dark', 'normal', 'bright'] as const;
-  const safeBrightness = validBrightness.includes(analysis.brightness as any) ? analysis.brightness : 'normal';
+  const safeBrightness = validBrightness.includes(analysis.brightness as typeof validBrightness[number]) ? analysis.brightness : 'normal';
 
   const validContrast = ['low', 'medium', 'high'] as const;
-  const safeContrast = validContrast.includes(analysis.contrastLevel as any) ? analysis.contrastLevel : 'medium';
+  const safeContrast = validContrast.includes(analysis.contrastLevel as typeof validContrast[number]) ? analysis.contrastLevel : 'medium';
 
   return {
     sceneType: safeSceneType,
@@ -188,4 +190,152 @@ export async function analyzeAndGrade(
 export async function analyzeImage(imageData: ImageData): Promise<AnalysisResult> {
   const result = await analyzeAndGrade(imageData);
   return result.analysis;
+}
+
+// ========== 复查/精炼阶段 ==========
+
+/** 复查结果中的审查意见 */
+export interface ReviewVerdict {
+  overallScore: number;
+  issues: string[];
+  strengths: string[];
+  verdict: string;
+}
+
+/** 复查精炼后的完整结果（第二版成品） */
+export interface ReviewResult {
+  /** 审查意见 */
+  review: ReviewVerdict;
+  /** 第二版分析结果 */
+  v2Analysis: AnalysisResult;
+  /** 第二版调色建议 */
+  v2Suggestions: string[];
+  /** 第二版精炼调色命令 */
+  v2Commands: GradingCommand[];
+  /** V2 推理过程（对比V1的差异） */
+  v2Reasoning?: string;
+}
+
+/**
+ * 将第一轮 AI 调色结果发给 AI 进行专业复查与精炼
+ *
+ * 流程：
+ * 1. 基于原图 + V1命令 渲染出调色后效果图
+ * 2. 将 **原图 + 调色后效果** 两张图 + V1方案文本一起发送给 AI
+ * 3. AI 以"首席调色总监"身份对比两张图，审查第一轮方案
+ * 4. 输出审查意见 + 精炼后的第二版成品方案（基于原图重新生成）
+ *
+ * @param imageData - 原始图像
+ * @param v1Result - 第一轮的完整结果
+ * @param onProgress - 可选进度回调
+ * @returns 审查意见 + 第二版精炼方案
+ */
+export async function reviewAndRefine(
+  imageData: ImageData,
+  v1Result: AutoGradeResult,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<ReviewResult> {
+  // 1. 原图转 base64
+  const originalBase64 = imageDataToBase64(imageData);
+
+  // 2. 基于 V1 命令渲染调色后效果图
+  let gradedBase64: string;
+  try {
+    gradedBase64 = generateGradedImage(imageData, v1Result.commands);
+    console.log('[Agnes AI] 调色预览图生成成功');
+  } catch (err) {
+    console.warn('[Agnes AI] 调色预览图生成失败，仅使用原图:', err);
+    gradedBase64 = originalBase64;
+  }
+
+  // 3. 构建用户消息：V1 结果摘要文本
+  const v1Summary = JSON.stringify({
+    analysis: v1Result.analysis,
+    commandCount: v1Result.commands.length,
+    commands: v1Result.commands.map((cmd) => ({
+      nodeType: cmd.nodeType,
+      params: cmd.params,
+      confidence: cmd.confidence,
+      description: cmd.description,
+    })),
+    reasoning: v1Result.reasoning || '',
+  }, null, 2);
+
+  const userMessage = `请仔细审查以下第一轮调色方案，并输出精炼的第二版方案。
+
+## 第一轮调色方案（待审查）
+${v1Summary}
+
+**重要提示**：
+- 图1 是原始照片（调色前的素材）
+- 图2 是应用了上述「第一轮调色方案」后的实际调色效果
+- 请**对比两张图片**来评估调色质量，特别关注：是否过度/不足/偏色/失真
+
+请基于以上信息，输出你的审查结论和基于原图重新生成的精炼第二版方案。`;
+
+  try {
+    // 4. 调用 Agnes AI API（使用复查系统提示词）—— 发送两张图
+    const rawResponse = await agnesClient.chat(
+      [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: originalBase64, detail: 'low' } },
+          { type: 'image_url', image_url: { url: gradedBase64, detail: 'low' } },
+          { type: 'text', text: userMessage },
+        ],
+      }],
+      SYSTEM_PROMPTS.reviewGrading,
+      true,
+      onProgress,
+    );
+
+    // 5. 解析复查响应
+    const parsed = typeof rawResponse === 'string' ? JSON.parse(rawResponse) : rawResponse;
+
+    const review: ReviewVerdict = {
+      overallScore: parsed.review?.overallScore ?? 5,
+      issues: Array.isArray(parsed.review?.issues) ? parsed.review.issues : ['无法获取审查意见'],
+      strengths: Array.isArray(parsed.review?.strengths) ? parsed.review.strengths : [],
+      verdict: parsed.review?.verdict ?? '需要修改',
+    };
+
+    const v2Analysis = mapAnalysis({
+      analysis: parsed.v2Analysis,
+      suggestions: parsed.v2Suggestions,
+      commands: parsed.v2Commands,
+      reasoning: parsed.v2Reasoning,
+    });
+
+    const v2Commands = extractCommands({
+      commands: parsed.v2Commands,
+    });
+
+    console.log(`[Agnes AI] 复查完成: V1评分=${review.overallScore}/10, V2命令数=${v2Commands.length}`);
+
+    return {
+      review,
+      v2Analysis,
+      v2Suggestions: Array.isArray(parsed.v2Suggestions) ? parsed.v2Suggestions : [],
+      v2Commands,
+      v2Reasoning: parsed.v2Reasoning,
+    };
+
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AgnesAPIError') {
+      console.error('[Agnes AI] 复查失败:', error.message);
+      return {
+        review: {
+          overallScore: 0,
+          issues: [`复查阶段AI不可用: ${error.message}`],
+          strengths: [],
+          verdict: '复查失败',
+        },
+        v2Analysis: v1Result.analysis,
+        v2Suggestions: [`复查失败，沿用V1结果 (${error.message})`],
+        v2Commands: v1Result.commands,
+        v2Reasoning: undefined,
+      };
+    }
+    throw error;
+  }
 }

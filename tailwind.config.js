@@ -53,11 +53,16 @@ export default {
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'flow-line': 'flowLine 2s ease-in-out infinite',
+        'scan': 'scan 1.5s ease-in-out infinite',
       },
       keyframes: {
         flowLine: {
           '0%': { strokeDashoffset: '100' },
           '100%': { strokeDashoffset: '0' },
+        },
+        scan: {
+          '0%, 100%': { transform: 'translateY(-100%)', opacity: '0' },
+          '50%': { transform: 'translateY(400%)', opacity: '1' },
         }
       }
     },

@@ -1,6 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { useImageStore } from '../store/useImageStore';
 import { analyzeAndGrade, type AutoGradeResult } from '../ai/agnes/imageAnalyzer';
+import { generateGradedImage } from '../ai/agnes/gradePreview';
+import { useSingleHistoryStore } from '../store/useSingleHistoryStore';
 
 export interface ImageLoadResult {
   /** AI 分析结果 */
@@ -129,6 +131,29 @@ export function useImageLoader() {
 
       // 保存分析结果到 store
       setAnalysisResult(aiResult.analysis);
+
+      // 生成高清效果图并保存到单张模式历史记录
+      try {
+        const resultImage = generateGradedImage(originalImageData, aiResult.commands);
+        // 生成缩略图用于历史列表
+        const thumbCanvas = document.createElement('canvas');
+        let tw = img.naturalWidth, th = img.naturalHeight;
+        if (tw > 200 || th > 200) { const s = Math.min(200 / tw, 200 / th); tw = Math.round(tw * s); th = Math.round(th * s); }
+        thumbCanvas.width = tw; thumbCanvas.height = th;
+        const tc = thumbCanvas.getContext('2d')!;
+        tc.drawImage(img, 0, 0, tw, th);
+        const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+
+        useSingleHistoryStore.getState().addEntry({
+          fileName: file.name,
+          thumbnail,
+          analysisResult: aiResult.analysis,
+          commands: aiResult.commands,
+          resultImage,
+        });
+      } catch (histErr) {
+        console.warn('[useImageLoader] 历史记录保存失败:', histErr);
+      }
 
       return {
         analysis: aiResult.analysis,
