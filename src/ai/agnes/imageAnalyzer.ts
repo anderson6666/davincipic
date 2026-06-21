@@ -11,15 +11,38 @@ export interface GradingCommand {
 }
 
 /**
- * 将 ImageData 转换为 base64 data URI
+ * 将 ImageData 转换为压缩后的 base64 data URI（AI 分析用）
+ * - 最大边长限制为 1024px（保持宽高比）
+ * - 使用 JPEG 0.82 质量压缩（远小于原始 PNG）
  */
 function imageDataToBase64(imageData: ImageData): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.putImageData(imageData, 0, 0);
-  return canvas.toDataURL('image/png');
+  const MAX_SIZE = 1024;
+  const { width: origW, height: origH } = imageData;
+
+  // 计算缩放尺寸（等比）
+  let drawW = origW;
+  let drawH = origH;
+  if (origW > MAX_SIZE || origH > MAX_SIZE) {
+    const scale = Math.min(MAX_SIZE / origW, MAX_SIZE / origH);
+    drawW = Math.round(origW * scale);
+    drawH = Math.round(origH * scale);
+  }
+
+  // 先把原图放入临时 canvas
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = origW;
+  srcCanvas.height = origH;
+  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true })!;
+  srcCtx.putImageData(imageData, 0, 0);
+
+  // 输出 canvas 用缩放后尺寸，JPEG 压缩
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = drawW;
+  outCanvas.height = drawH;
+  const outCtx = outCanvas.getContext('2d')!;
+  outCtx.drawImage(srcCanvas, 0, 0, drawW, drawH);
+
+  return outCanvas.toDataURL('image/jpeg', 0.82);
 }
 
 /**
