@@ -46,7 +46,7 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     let imageDataToShow = currentImageData;
@@ -89,7 +89,7 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
     const tmpCv = document.createElement('canvas');
     tmpCv.width = imgW;
     tmpCv.height = imgH;
-    tmpCv.getContext('2d')!.putImageData(imageDataToShow, 0, 0);
+    tmpCv.getContext('2d', { willReadFrequently: true })!.putImageData(imageDataToShow, 0, 0);
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -116,8 +116,7 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
     return () => { observer.disconnect(); cancelAnimationFrame(rafId); };
   }, [renderImage]);
 
-  // 触摸/鼠标事件
-  const handleWheel = (e: React.WheelEvent) => { e.preventDefault(); };
+  // 触摸/鼠标事件（wheel 用 CSS touch-action: none 替代 preventDefault）
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button === 0 || e.pointerType === 'touch') {
       setIsDragging(true);
@@ -156,7 +155,6 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onWheel={handleWheel}
       style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
     >
       {/* 图像画布 */}

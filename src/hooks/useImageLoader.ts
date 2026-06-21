@@ -87,7 +87,7 @@ export function useImageLoader() {
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(img, 0, 0);
       const originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);

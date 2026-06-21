@@ -123,7 +123,7 @@ export class AgnesAPIClient {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(60000), // 60秒超时（移动端网络可能较慢）
       });
 
       if (response.ok) {
@@ -162,7 +162,7 @@ export class AgnesAPIClient {
     const request: AgnesAPIRequest = {
       model: DEFAULT_MODEL,
       temperature: 0.3,
-      max_tokens: 4096,
+      max_tokens: 8000,
       ...(useJSONFormat && { response_format: { type: 'json_object' } }),
       messages: [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
