@@ -166,7 +166,7 @@ export default function App() {
           </div>
 
           {/* 移动端底部导航 — 仅移动端显示 */}
-          <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} />
+          <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} onToggleBatch={toggleBatchMode} />
         </>
       )}
     </div>

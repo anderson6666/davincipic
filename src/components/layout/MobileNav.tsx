@@ -1,10 +1,11 @@
-import { Eye, GitBranch, Sparkles } from 'lucide-react';
+import { Eye, GitBranch, Sparkles, Layers } from 'lucide-react';
 
 type MobileTab = 'preview' | 'nodes' | 'ai';
 
 interface MobileNavProps {
   activeTab: MobileTab;
   onTabChange: (tab: MobileTab) => void;
+  onToggleBatch?: () => void;
 }
 
 const tabs: { key: MobileTab; label: string; icon: React.ElementType }[] = [
@@ -13,7 +14,7 @@ const tabs: { key: MobileTab; label: string; icon: React.ElementType }[] = [
   { key: 'ai', label: 'AI', icon: Sparkles },
 ];
 
-export default function MobileNav({ activeTab, onTabChange }: MobileNavProps) {
+export default function MobileNav({ activeTab, onTabChange, onToggleBatch }: MobileNavProps) {
   return (
     <nav className="lg:hidden h-14 bg-studio-panel/95 backdrop-blur-lg border-t border-studio-border flex items-center justify-around px-2 safe-area-inset-bottom shrink-0">
       {tabs.map(({ key, label, icon: Icon }) => {
@@ -37,6 +38,16 @@ export default function MobileNav({ activeTab, onTabChange }: MobileNavProps) {
           </button>
         );
       })}
+      {/* 多线程切换按钮 */}
+      {onToggleBatch && (
+        <button
+          onClick={onToggleBatch}
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-all relative text-violet-400/60 hover:text-violet-300"
+        >
+          <Layers size={20} strokeWidth={1.8} />
+          <span className="text-[10px] font-medium">多线程</span>
+        </button>
+      )}
     </nav>
   );
 }

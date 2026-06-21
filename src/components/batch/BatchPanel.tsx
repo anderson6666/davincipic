@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Upload, Play, Square, Trash2, Layers,
   CheckCircle2, Loader2, ShieldCheck, Image as ImageIcon,
-  Sparkles, RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { useBatchStore, type BatchTask } from '../../store/useBatchStore';
 import BatchTaskCard from './BatchTaskCard';
@@ -50,7 +50,7 @@ async function fileToImageData(file: File, onProgress?: (pct: number) => void): 
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-export default function BatchPanel() {
+export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: () => void }) {
   const [activeTab, setActiveTab] = useState<TabType>('tasks');
   const abortRefs = useRef<Map<string, AbortController>>(new Map());
   /** 缓存源图的 ImageData（所有任务共享） */
@@ -64,6 +64,22 @@ export default function BatchPanel() {
   } = useBatchStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** 开始处理的时间戳（用于10秒冷却） */
+  const startedAtRef = useRef<number>(0);
+  const [canStop, setCanStop] = useState(true);
+  useEffect(() => {
+    if (!isProcessing && !isReviewing) { setCanStop(true); return; }
+    if (startedAtRef.current === 0) return;
+    const check = () => {
+      const elapsed = Date.now() - startedAtRef.current;
+      setCanStop(elapsed >= 10000);
+      if (elapsed >= 10000) clearInterval(timer);
+    };
+    const timer = setInterval(check, 500);
+    check();
+    return () => clearInterval(timer);
+  }, [isProcessing, isReviewing]);
 
   /**
    * 阶段1：处理单个任务 — AI 分析 + 生成 V1 高清效果图
@@ -195,6 +211,8 @@ export default function BatchPanel() {
 
     setProcessing(true);
     setReviewing(false);
+    startedAtRef.current = Date.now();
+    setCanStop(false);
 
     // 10个任务同时启动！真正的多线程并发
     await Promise.all(idleTasks.map((task) => processSingleTask(task)));
@@ -301,8 +319,16 @@ export default function BatchPanel() {
           )}
         </div>
 
-        {/* 右侧：Tab + 操作 */}
+        {/* 右侧：Tab + 模式切换 + 操作 */}
         <div className="flex items-center gap-2">
+          {/* 手机端：单张/多线程模式切换 */}
+          {typeof onToggleBatchMode === 'function' && (
+            <button onClick={onToggleBatchMode}
+              className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 text-[10px] rounded-lg border border-cyan-500/25 text-cyan-400 bg-cyan-500/[0.06] hover:bg-cyan-500/12 transition-all font-mono"
+            >
+              <Layers size={11} /> 单张模式
+            </button>
+          )}
           <div className="flex bg-white/[0.04] rounded-lg p-0.5 border border-white/[0.06]">
             {(['tasks', 'history'] as TabType[]).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
@@ -376,11 +402,7 @@ export default function BatchPanel() {
                 {/* 操作按钮行 */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-30 text-white/50"
-                    >
-                      <RefreshCw size={12} /> 换图
-                    </button>
+                    {/* 换图按钮已移除，仅保留源图预览条中的更换图片 */}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -401,10 +423,14 @@ export default function BatchPanel() {
                     )}
 
                     {(isProcessing || isReviewing) && (
-                      <button onClick={stopAll}
-                        className="flex items-center gap-1.5 px-5 py-2.5 text-xs rounded-xl bg-red-500/15 border border-red-500/25 text-red-400 font-mono hover:bg-red-500/25 transition-all"
+                      <button onClick={stopAll} disabled={!canStop}
+                        className={`flex items-center gap-1.5 px-5 py-2.5 text-xs rounded-xl font-mono transition-all ${
+                          canStop
+                            ? 'bg-red-500/15 border border-red-500/25 text-red-400 hover:bg-red-500/25'
+                            : 'bg-white/[0.03] border border-white/[0.06] text-white/20 cursor-not-allowed'
+                        }`}
                       >
-                        <Square size={13} /> 停止全部
+                        <Square size={13} /> {canStop ? '停止全部' : `${Math.max(0, 10 - Math.round((Date.now() - startedAtRef.current) / 1000))}s后可停`}
                       </button>
                     )}
 
