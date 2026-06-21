@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { ReactFlow, Background, Controls, MiniMap, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
-  ChevronDown,
-  ChevronRight,
-  Plus,
   SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,12 +23,21 @@ const nodeIcons: Record<string, LucideIcon> = {
   noiseReduce: SlidersHorizontal,
 };
 
+/** 节点分类定义 */
+const NODE_CATEGORIES: { label: string; types: NodeType[] }[] = [
+  { label: '一级调色', types: ['primary'] },
+  { label: '一级校色', types: ['colorWheel', 'curves'] },
+  { label: '二级调色', types: ['secondary'] },
+  { label: '二级调色工具', types: ['qualifier', 'powerWindow', 'tracking'] },
+  { label: '效果处理', types: ['lut', 'colorMatch', 'noiseReduce'] },
+  { label: 'RGB混合器', types: ['rgbMixer'] },
+];
+
 interface RightPanelProps {
   mobile?: boolean;
 }
 
 export default function RightPanel({ mobile }: RightPanelProps) {
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const { nodes, edges, addNode } = useNodeStore();
 
@@ -74,96 +80,36 @@ export default function RightPanel({ mobile }: RightPanelProps) {
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[360px]'} bg-studio-panel ${mobile ? '' : 'border-l'} border-studio-border flex flex-col overflow-hidden`}>
-      {/* 节点添加工具栏 */}
-      <div className="border-b border-studio-border">
-        <button
-          onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between text-sm hover:bg-studio-surface transition-colors"
-        >
-          <span className="font-mono text-studio-text-dim uppercase tracking-wider flex items-center gap-2">
-            <Plus size={14} />
-            添加节点
-          </span>
-          {isToolbarExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-
-        {isToolbarExpanded && (
-          <div className="px-4 pb-3 space-y-2 max-h-48 overflow-auto">
-            {/* 一级调色 */}
-            <div>
-              <p className="text-[10px] text-studio-text-muted mb-1.5 font-mono">一级调色</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(['primary', 'colorWheel', 'curves'] as NodeType[]).map((type) => {
-                  const config = NODE_TYPE_CONFIG[type];
-                  const Icon = nodeIcons[type];
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => handleAddNode(type)}
-                      className="px-2.5 py-1.5 text-xs rounded bg-studio-surface border border-studio-border hover:border-opacity-60 transition-all flex items-center gap-1.5"
-                      style={{ borderColor: `${config.color}30` }}
-                    >
-                      <Icon size={12} style={{ color: config.color }} />
-                      <span style={{ color: config.color }}>{config.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 二级调色 */}
-            <div>
-              <p className="text-[10px] text-studio-text-muted mb-1.5 font-mono">二级调色</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(['secondary', 'qualifier', 'powerWindow', 'tracking'] as NodeType[]).map(
-                  (type) => {
-                    const config = NODE_TYPE_CONFIG[type];
-                    const Icon = nodeIcons[type];
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => handleAddNode(type)}
-                        className="px-2.5 py-1.5 text-xs rounded bg-studio-surface border border-studio-border hover:border-opacity-60 transition-all flex items-center gap-1.5"
-                        style={{ borderColor: `${config.color}30` }}
-                      >
-                        <Icon size={12} style={{ color: config.color }} />
-                        <span style={{ color: config.color }}>{config.label}</span>
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-
-            {/* 效果处理 */}
-            <div>
-              <p className="text-[10px] text-studio-text-muted mb-1.5 font-mono">效果处理</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(['rgbMixer', 'lut', 'colorMatch', 'noiseReduce'] as NodeType[]).map(
-                  (type) => {
-                    const config = NODE_TYPE_CONFIG[type];
-                    const Icon = nodeIcons[type];
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => handleAddNode(type)}
-                        className="px-2.5 py-1.5 text-xs rounded bg-studio-surface border border-studio-border hover:border-opacity-60 transition-all flex items-center gap-1.5"
-                        style={{ borderColor: `${config.color}30` }}
-                      >
-                        <Icon size={12} style={{ color: config.color }} />
-                        <span style={{ color: config.color }}>{config.label}</span>
-                      </button>
-                    );
-                  }
-                )}
-              </div>
+      {/* ===== 节点分类列表 ===== */}
+      <div className={`${mobile ? '' : 'border-b'} border-studio-border overflow-y-auto shrink-0`} style={{ maxHeight: mobile ? undefined : '40%' }}>
+        {NODE_CATEGORIES.map((cat) => (
+          <div key={cat.label} className={`px-${mobile ? '3' : '4'} py-2 ${mobile ? '' : 'border-b'} border-studio-border/50 last:border-b-0`}>
+            <p className={`text-[${mobile ? '10' : '11'}px] text-studio-text-muted mb-1.5 font-mono uppercase tracking-wider`}>
+              {cat.label}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {cat.types.map((type) => {
+                const config = NODE_TYPE_CONFIG[type];
+                const Icon = nodeIcons[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => handleAddNode(type)}
+                    className="px-2.5 py-1.5 text-xs rounded bg-studio-surface border transition-all flex items-center gap-1.5 hover:brightness-125"
+                    style={{ borderColor: `${config.color}30`, color: config.color }}
+                  >
+                    <Icon size={12} />
+                    <span>{config.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
+        ))}
       </div>
 
-      {/* 节点编辑器区域 - 高度约55% */}
-      <div className="flex-1 min-h-0" style={{ height: '55%' }}>
+      {/* ===== 节点编辑器区域 ===== */}
+      <div className="flex-1 min-h-0" style={{ height: mobile ? '45%' : '55%' }}>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -214,7 +160,6 @@ export default function RightPanel({ mobile }: RightPanelProps) {
                     type="range"
                     value={typeof value === 'number' ? value : 50}
                     onChange={(e) => {
-                      // TODO: 实现参数更新逻辑
                       console.log('更新参数:', key, e.target.value);
                     }}
                     className="w-full h-1 bg-studio-border rounded appearance-none cursor-pointer accent-studio-accent"

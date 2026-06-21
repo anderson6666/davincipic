@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, Download, Undo2, Redo2, RotateCcw, Key, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { agnesClient, type APIConnectionStatus, API_ENDPOINTS } from '../../api/client';
+import { agnesClient, type APIConnectionStatus } from '../../api/client';
 import { useImageStore } from '../../store/useImageStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 
@@ -14,13 +14,11 @@ interface HeaderProps {
 function APIKeySettings() {
   const [isOpen, setIsOpen] = useState(false);
   const [keyInput, setKeyInput] = useState(agnesClient.getApiKey());
-  const [urlInput, setUrlInput] = useState(agnesClient.getBaseUrl());
   const [status, setStatus] = useState<APIConnectionStatus>(agnesClient.status);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSave = async () => {
     agnesClient.setApiKey(keyInput);
-    agnesClient.setBaseUrl(urlInput);
 
     let isValid = false;
     if (keyInput.trim()) {
@@ -62,7 +60,7 @@ function APIKeySettings() {
   return (
     <>
       <button
-        onClick={() => { setIsOpen(true); setKeyInput(agnesClient.getApiKey()); setUrlInput(agnesClient.getBaseUrl()); }}
+        onClick={() => { setIsOpen(true); setKeyInput(agnesClient.getApiKey()); }}
         className={`w-9 h-9 rounded-lg bg-studio-surface border transition-all duration-200 flex items-center justify-center group ${
           status === 'connected'
             ? 'border-studio-success/40 hover:border-studio-success hover:shadow-[0_0_8px_rgba(74,222,128,0.25)]'
@@ -92,25 +90,19 @@ function APIKeySettings() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-studio-text-dim font-mono uppercase tracking-wider">API 地址</label>
-              <div className="grid grid-cols-2 gap-2">
-                {API_ENDPOINTS.map((ep) => (
-                  <button
-                    key={ep.key}
-                    type="button"
-                    onClick={() => setUrlInput(ep.url)}
-                    className={`px-3 py-2 rounded-lg border text-left transition-all ${
-                      urlInput === ep.url
-                        ? 'border-studio-accent bg-studio-accent/10 text-studio-accent'
-                        : 'border-studio-border bg-studio-surface text-studio-text-dim hover:border-studio-accent/50'
-                    }`}
-                  >
-                    <span className="block text-xs font-medium">{ep.label}</span>
-                    <span className="block text-[10px] opacity-60 font-mono truncate">{ep.url.replace('/v1', '')}</span>
-                  </button>
-                ))}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-studio-text-dim font-mono uppercase tracking-wider">API 地址</p>
+                <p className="text-xs text-studio-text font-mono mt-0.5">apihub.agnes-ai.com/v1</p>
               </div>
+              <a
+                href="https://platform.agnes-ai.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg border border-studio-border bg-studio-surface text-xs text-studio-text-dim hover:text-studio-accent hover:border-studio-accent transition-all font-mono"
+              >
+                Platform →
+              </a>
             </div>
 
             <p className="text-[10px] text-studio-text-muted">
