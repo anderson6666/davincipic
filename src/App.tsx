@@ -6,6 +6,7 @@ import BottomBar from './components/layout/BottomBar';
 import MobileNav from './components/layout/MobileNav';
 import RightPanel from './components/layout/RightPanel';
 import { useImageLoader } from './hooks/useImageLoader';
+import { useRenderLoop } from './hooks/useRenderLoop';
 import { useExport } from './hooks/useExport';
 import { useImageStore } from './store/useImageStore';
 import { useNodeStore } from './store/useNodeStore';
@@ -18,6 +19,7 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
   const { loadImage, triggerFileInput, fileInputRef } = useImageLoader();
   const { exportAsPNG, exportAsJPEG } = useExport();
+  const { forceRender } = useRenderLoop(); // 关键：监听节点变化 → 触发渲染引擎
 
   // Stores
   const resetImage = useImageStore((s) => s.reset);
@@ -54,7 +56,9 @@ export default function App() {
     }
 
     if (appliedCount > 0) {
+      // 显式触发一次渲染（确保 workflow 引擎立即执行）
       setTimeout(() => {
+        forceRender();
         pushHistory(
           useNodeStore.getState().nodes,
           useNodeStore.getState().edges,
@@ -64,7 +68,7 @@ export default function App() {
     }
 
     console.log(`[AutoGrade] 自动应用了 ${appliedCount} 个调色节点 (${source})`);
-  }, [addNode, pushHistory]);
+  }, [addNode, pushHistory, forceRender]);
 
   /**
    * 图片上传 → AI 自动分析+决策 → 自动应用节点（通用处理）
@@ -137,10 +141,10 @@ export default function App() {
       <BottomBar className="hidden lg:flex" />
 
       {/* ===== 移动端布局 (< lg: <1024px) ===== */}
-      <div className="flex-1 overflow-hidden lg:hidden">
-        {mobileTab === 'preview' && <Sidebar mobile />}
-        {mobileTab === 'nodes' && <RightPanel mobile />}
-        {mobileTab === 'ai' && <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile />}
+      <div className="flex-1 overflow-hidden lg:hidden min-h-0">
+        {mobileTab === 'preview' && <div className="w-full h-full"><Sidebar mobile /></div>}
+        {mobileTab === 'nodes' && <div className="w-full h-full"><RightPanel mobile /></div>}
+        {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile /></div>}
       </div>
 
       {/* 移动端底部导航 — 仅移动端显示 */}

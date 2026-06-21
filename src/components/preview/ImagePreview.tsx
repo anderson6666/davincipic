@@ -10,20 +10,43 @@ interface ImagePreviewProps {
 
 export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const displayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  // 强制重渲染计数器（当 imageData 变化时递增，绕过 ResizeObserver 延迟）
+  const [, setRenderTick] = useState(0);
 
   const { originalImageData, currentImageData } = useImageStore();
 
-  // 渲染图像到显示 canvas（自适应容器尺寸）
-  const renderImage = useCallback(() => {
-    const displayCanvas = displayCanvasRef.current;
-    if (!displayCanvas) return;
+  // 获取容器实际尺寸（优先用 state，fallback 到 getBoundingClientRect）
+  const getContainerSize = useCallback(() => {
+    return new Promise<{ w: number; h: number }>((resolve) => {
+      if (wrapperRef.current) {
+        const rect = wrapperRef.current.getBoundingClientRect();
+        if (rect.width > 10 && rect.height > 10) {
+          resolve({ w: Math.floor(rect.width), h: Math.floor(rect.height) });
+          return;
+        }
+      }
+      // fallback：requestAnimationFrame 等布局完成后再取
+      requestAnimationFrame(() => {
+        if (wrapperRef.current) {
+          const rect = wrapperRef.current.getBoundingClientRect();
+          resolve({ w: Math.max(Math.floor(rect.width), 300), h: Math.max(Math.floor(rect.height), 400) });
+        } else {
+          resolve({ w: 300, h: 400 });
+        }
+      });
+    });
+  }, []);
 
-    const ctx = displayCanvas.getContext('2d');
+  // 渲染图像到 canvas
+  const renderImage = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let imageDataToShow = currentImageData;
@@ -32,97 +55,90 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
     }
 
     if (!imageDataToShow) {
-      displayCanvas.width = 400;
-      displayCanvas.height = 300;
+      canvas.width = 300 * (window.devicePixelRatio || 1);
+      canvas.height = 200 * (window.devicePixelRatio || 1);
       ctx.fillStyle = '#0d0d0d';
-      ctx.fillRect(0, 0, displayCanvas.width, displayCanvas.height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       return;
     }
 
-    // 显示 canvas 尺寸 = 容器尺寸（CSS 控制）
-    const rect = displayCanvas.parentElement?.getBoundingClientRect();
-    if (rect && rect.width > 0 && rect.height > 0) {
-      displayCanvas.width = Math.floor(rect.width * window.devicePixelRatio);
-      displayCanvas.height = Math.floor(rect.height * window.devicePixelRatio);
-    } else {
-      displayCanvas.width = imageDataToShow.width;
-      displayCanvas.height = imageDataToShow.height;
+    // 动态获取容器尺寸（确保不为 0）
+    const { w: cw, h: ch } = await getContainerSize();
+    const dpr = window.devicePixelRatio || 1;
+    const cvsW = Math.max(Math.floor(cw * dpr), 100);
+    const cvsH = Math.max(Math.floor(ch * dpr), 100);
+
+    // 设置 canvas 物理像素
+    if (canvas.width !== cvsW || canvas.height !== cvsH) {
+      canvas.width = cvsW;
+      canvas.height = cvsH;
     }
 
-    // 绘制：保持宽高比，居中，适应容器
-    ctx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+    ctx.clearRect(0, 0, cvsW, cvsH);
 
+    // contain 模式：等比缩放居中
     const imgW = imageDataToShow.width;
     const imgH = imageDataToShow.height;
-    const cvsW = displayCanvas.width;
-    const cvsH = displayCanvas.height;
-
-    // contain 模式：等比缩放，完整显示
     const scale = Math.min(cvsW / imgW, cvsH / imgH);
     const drawW = imgW * scale;
     const drawH = imgH * scale;
     const offsetX = (cvsW - drawW) / 2;
     const offsetY = (cvsH - drawH) / 2;
 
-    // 使用临时 canvas 缩放绘制
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = imgW;
-    tmpCanvas.height = imgH;
-    const tmpCtx = tmpCanvas.getContext('2d')!;
-    tmpCtx.putImageData(imageDataToShow, 0, 0);
+    // ImageData → Canvas → drawImage（缩放桥接）
+    const tmpCv = document.createElement('canvas');
+    tmpCv.width = imgW;
+    tmpCv.height = imgH;
+    tmpCv.getContext('2d')!.putImageData(imageDataToShow, 0, 0);
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(tmpCanvas, offsetX, offsetY, drawW, drawH);
-  }, [currentImageData, originalImageData, compareMode]);
+    ctx.drawImage(tmpCv, offsetX, offsetY, drawW, drawH);
+  }, [currentImageData, originalImageData, compareMode, getContainerSize]);
 
+  // 当 imageData 或 compareMode 变化时强制重绘
   useEffect(() => {
+    setRenderTick((t) => t + 1); // 触发状态更新确保组件重新执行
     renderImage();
+  }, [currentImageData?.data, originalImageData?.data, compareMode]);
 
-    // 容器尺寸变化时重新渲染（ResizeObserver）
-    const container = containerRef.current;
-    if (!container) return;
+  // 容器尺寸变化时也重绘
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
 
-    const observer = new ResizeObserver(() => renderImage());
-    observer.observe(container);
-    return () => observer.disconnect();
+    let rafId: number;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => renderImage());
+    });
+    observer.observe(el);
+    return () => { observer.disconnect(); cancelAnimationFrame(rafId); };
   }, [renderImage]);
 
-  // 鼠标滚轮缩放
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-  };
-
-  // 拖拽平移开始
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0) {
+  // 触摸/鼠标事件
+  const handleWheel = (e: React.WheelEvent) => { e.preventDefault(); };
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button === 0 || e.pointerType === 'touch') {
       setIsDragging(true);
       setDragStart({
         x: e.clientX - position.x,
         y: e.clientY - position.y,
       });
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
-
-  // 拖拽平移中
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (isDragging) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      });
+      setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
     }
   };
-
-  // 拖拽平移结束
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handlePointerUp = () => { setIsDragging(false); };
 
   // 空状态
   if (!originalImageData && !currentImageData) {
     return (
-      <div className="w-full h-full min-h-[200px] rounded-lg border border-studio-border/50 bg-studio-bg/30 flex flex-col items-center justify-center gap-3">
+      <div className="w-full h-full min-h-[250px] rounded-lg border border-studio-border/50 bg-studio-bg/30 flex flex-col items-center justify-center gap-3">
         <div className="w-12 h-12 rounded-full bg-studio-surface/60 flex items-center justify-center">
           <Upload size={22} className="text-studio-text-muted/40" />
         </div>
@@ -134,34 +150,28 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
 
   return (
     <div
-      ref={containerRef}
-      className="relative w-full h-full overflow-hidden bg-studio-bg rounded-lg"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      ref={wrapperRef}
+      className="relative w-full h-full min-h-[300px] overflow-hidden bg-studio-bg rounded-lg"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       onWheel={handleWheel}
-      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
     >
-      {/* Canvas 容器 — 自适应填充 */}
-      <div
-        className="absolute inset-0 flex items-center justify-center"
+      {/* 图像画布 */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
         style={{
           transform: `translate(${position.x}px, ${position.y}px) scale(${zoom / 100})`,
           transformOrigin: 'center center',
-          transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+          transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+          imageRendering: zoom > 200 ? 'pixelated' : 'auto',
         }}
-      >
-        <div className="relative w-full h-full">
-          <canvas
-            ref={displayCanvasRef}
-            className="absolute inset-0 w-full h-full"
-            style={{ imageRendering: zoom > 200 ? 'pixelated' : 'auto' }}
-          />
-        </div>
-      </div>
+      />
 
-      {/* 分屏对比模式下的滑块 */}
+      {/* 分屏对比 */}
       {compareMode === 'split' && originalImageData && currentImageData && (
         <CompareSlider
           originalImageData={originalImageData}
@@ -171,7 +181,7 @@ export default function ImagePreview({ zoom, compareMode }: ImagePreviewProps) {
         />
       )}
 
-      {/* 缩放和位置指示器 */}
+      {/* 缩放指示器 */}
       <div className="absolute bottom-3 left-3 px-2 py-1 bg-studio-panel/90 backdrop-blur-sm rounded text-[10px] font-mono text-studio-text-dim flex items-center gap-2">
         <ZoomIn size={10} />
         {zoom}%

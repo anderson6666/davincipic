@@ -80,35 +80,7 @@ export default function RightPanel({ mobile }: RightPanelProps) {
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[360px]'} bg-studio-panel ${mobile ? '' : 'border-l'} border-studio-border flex flex-col overflow-hidden`}>
-      {/* ===== 节点分类列表（移动端完全隐藏） ===== */}
-      {!mobile && (
-      <div className="border-b border-studio-border overflow-y-auto shrink-0" style={{ maxHeight: '40%' }}>
-        {NODE_CATEGORIES.filter(c => !c.hidden).map((cat) => (
-          <div key={cat.label} className={`px-4 py-2 border-b border-studio-border/50 last:border-b-0`}>
-            <p className="text-[11px] text-studio-text-muted mb-1.5 font-mono uppercase tracking-wider">
-              {cat.label}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {cat.types.map((type) => {
-                const config = NODE_TYPE_CONFIG[type];
-                const Icon = nodeIcons[type];
-                return (
-                  <button
-                    key={type}
-                    onClick={() => handleAddNode(type)}
-                    className="px-2.5 py-1.5 text-xs rounded bg-studio-surface border transition-all flex items-center gap-1.5 hover:brightness-125"
-                    style={{ borderColor: `${config.color}30`, color: config.color }}
-                  >
-                    <Icon size={12} />
-                    <span>{config.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      )}
+      {/* ===== 节点分类列表（桌面端和移动端均隐藏，仅保留编辑器和参数面板） ===== */}
 
       {/* ===== 节点编辑器区域 ===== */}
       <div className="flex-1 min-h-0" style={{ height: mobile ? '45%' : '55%' }}>
