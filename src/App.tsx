@@ -1,18 +1,22 @@
-import { useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import MainPanel from './components/layout/MainPanel';
 import BottomBar from './components/layout/BottomBar';
+import MobileNav from './components/layout/MobileNav';
+import RightPanel from './components/layout/RightPanel';
 import { useImageLoader } from './hooks/useImageLoader';
-import { useRenderLoop } from './hooks/useRenderLoop';
 import { useExport } from './hooks/useExport';
 import { useImageStore } from './store/useImageStore';
 import { useNodeStore } from './store/useNodeStore';
 import { useHistoryStore } from './store/useHistoryStore';
 
+/** 移动端 Tab 类型 */
+type MobileTab = 'preview' | 'nodes' | 'ai';
+
 export default function App() {
+  const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
   const { loadImage, triggerFileInput, fileInputRef } = useImageLoader();
-  const { forceRender } = useRenderLoop();
   const { exportAsPNG, exportAsJPEG } = useExport();
 
   // Stores
@@ -63,6 +67,8 @@ export default function App() {
       if (result.commands && result.commands.length > 0) {
         applyCommands(result.commands, `AI自动调色 (${result.commands.length}个节点)`);
       }
+      // 移动端上传后自动切到 AI 面板查看结果
+      setMobileTab('ai');
     } catch (err) {
       console.error('[App] 图片上传错误:', err);
     }
@@ -98,7 +104,7 @@ export default function App() {
     clearAllNodes();
   }, [resetImage, clearAllNodes]);
 
-  // 快捷键
+  // 快捷键（仅桌面端）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -112,11 +118,24 @@ export default function App() {
     <div className="w-full h-full flex flex-col bg-studio-bg overflow-hidden">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
       <Header onUpload={triggerFileInput} onExport={handleExport} onReset={handleReset} />
-      <div className="flex-1 flex overflow-hidden">
+
+      {/* ===== 桌面端布局 (lg+: ≥1024px) ===== */}
+      <div className="flex-1 flex overflow-hidden hidden lg:flex">
         <Sidebar />
         <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} />
+        <RightPanel />
       </div>
-      <BottomBar />
+      <BottomBar className="hidden lg:flex" />
+
+      {/* ===== 移动端布局 (< lg: <1024px) ===== */}
+      <div className="flex-1 overflow-hidden lg:hidden">
+        {mobileTab === 'preview' && <Sidebar mobile />}
+        {mobileTab === 'nodes' && <RightPanel mobile />}
+        {mobileTab === 'ai' && <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile />}
+      </div>
+
+      {/* 移动端底部导航 — 仅移动端显示 */}
+      <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} />
     </div>
   );
 }

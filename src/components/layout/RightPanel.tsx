@@ -26,7 +26,11 @@ const nodeIcons: Record<string, LucideIcon> = {
   noiseReduce: SlidersHorizontal,
 };
 
-export default function RightPanel() {
+interface RightPanelProps {
+  mobile?: boolean;
+}
+
+export default function RightPanel({ mobile }: RightPanelProps) {
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const { nodes, edges, addNode } = useNodeStore();
@@ -69,7 +73,7 @@ export default function RightPanel() {
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
 
   return (
-    <aside className="w-[360px] bg-studio-panel border-l border-studio-border flex flex-col overflow-hidden">
+    <aside className={`${mobile ? 'w-full' : 'w-[360px]'} bg-studio-panel ${mobile ? '' : 'border-l'} border-studio-border flex flex-col overflow-hidden`}>
       {/* 节点添加工具栏 */}
       <div className="border-b border-studio-border">
         <button

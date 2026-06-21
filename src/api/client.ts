@@ -6,17 +6,27 @@ import type {
 import { AgnesAPIError } from './types';
 import { SYSTEM_PROMPTS } from './prompts';
 
-const API_BASE_URL = 'https://apihub.agnes-ai.com/v1';
+const API_URLS: Record<string, string> = {
+  apihub: 'https://apihub.agnes-ai.com/v1',
+  platform: 'https://platform.agnes-ai.com/v1',
+};
+const DEFAULT_API_KEY = 'apihub';
 const DEFAULT_MODEL = 'agnes-2.0-flash';
 
-/** API 连接状态 */
 export type APIConnectionStatus = 'idle' | 'validating' | 'connected' | 'error' | 'no_key';
+
+/** 可选的 API 地址列表 */
+export const API_ENDPOINTS = Object.entries(API_URLS).map(([key, url]) => ({
+  key,
+  label: key === 'platform' ? 'Platform' : 'APIHub',
+  url,
+}));
 
 /**
  * Agnes AI API 客户端
- * 
+ *
  * 提供图像分析和连接验证功能
- * 所有请求发送到 https://apihub.agnes-ai.com/v1
+ * 支持 apihub / platform 两种 API 地址
  */
 export class AgnesAPIClient {
   private apiKey: string = '';
@@ -24,10 +34,11 @@ export class AgnesAPIClient {
   private _status: APIConnectionStatus = 'idle';
 
   get status(): APIConnectionStatus { return this._status; }
+  get currentUrl(): string { return this.baseUrl; }
 
   constructor(options?: { apiKey?: string; baseUrl?: string }) {
     this.apiKey = options?.apiKey || this.loadSavedKey();
-    this.baseUrl = options?.baseUrl || API_BASE_URL;
+    this.baseUrl = options?.baseUrl || this.loadSavedUrl() || API_URLS[DEFAULT_API_KEY];
   }
 
   // ========== API Key 管理 ==========
@@ -60,6 +71,34 @@ export class AgnesAPIClient {
       return localStorage.getItem('agnes_api_key') || '';
     } catch {
       return '';
+    }
+  }
+
+  // ========== API 地址管理 ==========
+
+  /** 设置 API 地址并持久化到 localStorage */
+  setBaseUrl(url: string): void {
+    this.baseUrl = url;
+    this._status = 'idle';
+    if (typeof window !== 'undefined') {
+      const key = Object.entries(API_URLS).find(([, v]) => v === url)?.[0] || 'custom';
+      localStorage.setItem('agnes_api_url', url);
+      localStorage.setItem('agnes_api_url_key', key);
+    }
+  }
+
+  /** 获取当前 API 地址 */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /** 从 localStorage 恢复 API 地址 */
+  private loadSavedUrl(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem('agnes_api_url');
+    } catch {
+      return null;
     }
   }
 

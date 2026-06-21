@@ -6,6 +6,7 @@ import ProgressBar from '../ui/ProgressBar';
 interface MainPanelProps {
   onUpload: () => void;
   onFileDrop?: (file: File) => void;  // 拖拽文件时直接回调
+  mobile?: boolean;
 }
 
 /** AI 分析结果面板 */
@@ -115,7 +116,7 @@ function AIPanel() {
 }
 
 /** 上传区域 - 可点击 + 拖拽 */
-function UploadZone({ onUpload, onFileDrop }: { onUpload: () => void; onFileDrop?: (file: File) => void }) {
+function UploadZone({ onUpload, onFileDrop, mobile }: { onUpload: () => void; onFileDrop?: (file: File) => void; mobile?: boolean }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const dragRef = useRef<number>(0);
 
@@ -163,53 +164,48 @@ function UploadZone({ onUpload, onFileDrop }: { onUpload: () => void; onFileDrop
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center min-h-[360px]
+      className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center ${mobile ? 'min-h-[240px] py-8' : 'min-h-[360px] py-12'}
         ${isDragOver
           ? 'border-studio-accent bg-studio-accent/5 scale-[1.01]'
           : 'border-studio-border hover:border-studio-accent/50 hover:bg-studio-surface/50'
         }`}
     >
       <div className={`transition-transform duration-300 ${isDragOver ? 'scale-110' : ''}`}>
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-colors ${
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 transition-colors ${
           isDragOver ? 'bg-studio-accent/15' : 'bg-studio-surface border border-studio-border'
         }`}>
           {isDragOver ? (
-            <ImagePlus size={28} className="text-studio-accent" />
+            <ImagePlus size={mobile ? 24 : 28} className="text-studio-accent" />
           ) : (
-            <Upload size={26} className="text-studio-text-muted" />
+            <Upload size={mobile ? 22 : 26} className="text-studio-text-muted" />
           )}
         </div>
       </div>
 
-      <p className="text-sm text-studio-text mb-1 font-medium">
+      <p className={`${mobile ? 'text-sm' : 'text-sm'} text-studio-text mb-1 font-medium`}>
         {isDragOver ? '释放以上传图片' : '点击或拖拽图片到此处'}
       </p>
       <p className="text-xs text-studio-text-muted opacity-70">
-        Agnes AI 将自动分析并完成调色
+        AI 将自动分析并完成调色
       </p>
-      {!isDragOver && (
-        <p className="text-[11px] text-studio-text-dim mt-4 px-4 py-2 rounded-lg bg-studio-bg border border-studio-border">
-          支持 JPG / PNG / WebP 格式
-        </p>
-      )}
     </div>
   );
 }
 
 /** 中央主面板 */
-export default function MainPanel({ onUpload, onFileDrop }: MainPanelProps) {
+export default function MainPanel({ onUpload, onFileDrop, mobile }: MainPanelProps) {
   const analysisResult = useImageStore((s) => s.analysisResult);
   const isLoading = useImageStore((s) => s.isLoading);
 
   return (
-    <main className="flex-1 bg-studio-bg overflow-auto p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <main className={`flex-1 bg-studio-bg overflow-auto ${mobile ? 'p-3' : 'p-6'}`}>
+      <div className={mobile ? 'space-y-4' : 'max-w-2xl mx-auto space-y-6'}>
         {isLoading ? (
           <AIPanel />
         ) : analysisResult ? (
           <AIPanel />
         ) : (
-          <UploadZone onUpload={onUpload} onFileDrop={onFileDrop} />
+          <UploadZone onUpload={onUpload} onFileDrop={onFileDrop} mobile={mobile} />
         )}
       </div>
     </main>

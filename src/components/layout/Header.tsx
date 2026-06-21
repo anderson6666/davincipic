@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, Download, Undo2, Redo2, RotateCcw, Key, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { agnesClient, type APIConnectionStatus } from '../../api/client';
+import { agnesClient, type APIConnectionStatus, API_ENDPOINTS } from '../../api/client';
 import { useImageStore } from '../../store/useImageStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 
@@ -14,17 +14,19 @@ interface HeaderProps {
 function APIKeySettings() {
   const [isOpen, setIsOpen] = useState(false);
   const [keyInput, setKeyInput] = useState(agnesClient.getApiKey());
+  const [urlInput, setUrlInput] = useState(agnesClient.getBaseUrl());
   const [status, setStatus] = useState<APIConnectionStatus>(agnesClient.status);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSave = async () => {
     agnesClient.setApiKey(keyInput);
+    agnesClient.setBaseUrl(urlInput);
 
     let isValid = false;
     if (keyInput.trim()) {
       setStatus('validating');
       setErrorMsg('');
-      
+
       const result = await agnesClient.validateConnection();
       isValid = result.valid;
       setStatus(isValid ? 'connected' : 'error');
@@ -60,7 +62,7 @@ function APIKeySettings() {
   return (
     <>
       <button
-        onClick={() => { setIsOpen(true); setKeyInput(agnesClient.getApiKey()); }}
+        onClick={() => { setIsOpen(true); setKeyInput(agnesClient.getApiKey()); setUrlInput(agnesClient.getBaseUrl()); }}
         className={`w-9 h-9 rounded-lg bg-studio-surface border transition-all duration-200 flex items-center justify-center group ${
           status === 'connected'
             ? 'border-studio-success/40 hover:border-studio-success hover:shadow-[0_0_8px_rgba(74,222,128,0.25)]'
@@ -90,8 +92,29 @@ function APIKeySettings() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-studio-text-dim font-mono uppercase tracking-wider">API 地址</label>
+              <div className="grid grid-cols-2 gap-2">
+                {API_ENDPOINTS.map((ep) => (
+                  <button
+                    key={ep.key}
+                    type="button"
+                    onClick={() => setUrlInput(ep.url)}
+                    className={`px-3 py-2 rounded-lg border text-left transition-all ${
+                      urlInput === ep.url
+                        ? 'border-studio-accent bg-studio-accent/10 text-studio-accent'
+                        : 'border-studio-border bg-studio-surface text-studio-text-dim hover:border-studio-accent/50'
+                    }`}
+                  >
+                    <span className="block text-xs font-medium">{ep.label}</span>
+                    <span className="block text-[10px] opacity-60 font-mono truncate">{ep.url.replace('/v1', '')}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <p className="text-[10px] text-studio-text-muted">
-              模型: agnes-2.0-flash | API 地址: https://apihub.agnes-ai.com/v1
+              模型: agnes-2.0-flash
             </p>
 
             {errorMsg && (
@@ -135,43 +158,44 @@ export default function Header({ onUpload, onExport, onReset }: HeaderProps) {
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   return (
-    <header className="h-12 glass-panel border-b border-studio-border flex items-center justify-between px-4 shrink-0 z-20">
+    <header className="h-12 glass-panel border-b border-studio-border flex items-center justify-between px-3 lg:px-4 shrink-0 z-20">
       {/* 左侧 Logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 lg:gap-3">
         <div className="flex flex-col">
-          <h1 className="font-mono text-base font-bold text-studio-accent tracking-widest drop-shadow-[0_0_10px_rgba(0,212,255,0.45)] leading-none">
+          <h1 className="font-mono text-sm lg:text-base font-bold text-studio-accent tracking-widest drop-shadow-[0_0_10px_rgba(0,212,255,0.45)] leading-none">
             DavinciPic
           </h1>
-          <span className="text-[9px] text-studio-text-dim -mt-0.5 tracking-widest uppercase">
+          <span className="text-[8px] lg:text-[9px] text-studio-text-dim -mt-0.5 tracking-widest uppercase hidden lg:inline">
             AI Color Grading
           </span>
         </div>
       </div>
 
       {/* 右侧工具按钮组 */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1 lg:gap-1.5">
         <button
           onClick={onUpload}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group"
+          className="w-9 h-9 rounded-lg bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group"
           title="上传图片"
         >
-          <Upload size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
+          <Upload size={16} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
         </button>
 
+        {/* 桌面端显示导出和撤销/重做 */}
         <button
           onClick={() => onExport('png')}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group"
+          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group hidden lg:flex"
           title="导出 PNG"
         >
           <Download size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5" />
+        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
 
         <button
           onClick={() => undo()}
           disabled={!canUndo()}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border"
+          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
           title="撤销 (Ctrl+Z)"
         >
           <Undo2 size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
@@ -180,25 +204,25 @@ export default function Header({ onUpload, onExport, onReset }: HeaderProps) {
         <button
           onClick={() => redo()}
           disabled={!canRedo()}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border"
+          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
           title="重做 (Ctrl+Y)"
         >
           <Redo2 size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5" />
+        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
 
         <button
           onClick={onReset}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-warning hover:shadow-glow-warning transition-all duration-200 flex items-center justify-center group"
+          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-warning hover:shadow-glow-warning transition-all duration-200 flex items-center justify-center group hidden lg:flex"
           title="重置所有"
         >
           <RotateCcw size={15} className="text-studio-text-dim group-hover:text-studio-warning transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5" />
+        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
 
-        {/* API Key 设置按钮 */}
+        {/* API Key 设置按钮 - 始终显示 */}
         <APIKeySettings />
       </div>
     </header>

@@ -1,7 +1,11 @@
 import { Undo2, Redo2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useHistoryStore } from '@/store/useHistoryStore';
 
-export default function BottomBar() {
+interface BottomBarProps {
+  className?: string;
+}
+
+export default function BottomBar({ className = '' }: BottomBarProps) {
   const { history, currentIndex, goToIndex } = useHistoryStore();
 
   const handlePrevious = () => {
@@ -17,7 +21,7 @@ export default function BottomBar() {
   };
 
   return (
-    <footer className="h-14 bg-studio-panel/80 backdrop-blur-sm border-t border-studio-border flex items-center justify-between px-4">
+    <footer className={`h-14 bg-studio-panel/80 backdrop-blur-sm border-t border-studio-border flex items-center justify-between px-4 ${className}`}>
       {/* 左侧：步骤计数 */}
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono text-studio-text-dim">
