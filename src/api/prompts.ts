@@ -92,7 +92,7 @@ export const SYSTEM_PROMPTS = {
 
 ## 严格约束（违反将导致解析失败）
 1. **必须返回纯 JSON**，不可包含 markdown 代码块、注释或多余文字
-2. **commands 数组必须包含 2-5 个元素**，按执行顺序排列（基础校正在前，风格化在后）
+2. **commands 数组必须包含 8-12 个元素**，按执行顺序排列（基础校正在前，风格化在后）。每张图都应给出丰富的调色建议，宁可多给不要少给
 3. **每个 command 必须包含全部 4 个字段**: nodeType, params, confidence, description
 4. **nodeType 只能是上述 9 种之一**
 5. **confidence 反映你对这个调整的把握程度**（问题明显时给高值，试探性调整给低值）

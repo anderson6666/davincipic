@@ -28,7 +28,7 @@ export default function App() {
   const redo = useHistoryStore((s) => s.redo);
 
   /**
-   * 将 AI 返回的 commands 自动创建为节点
+   * 将 AI 返回的 commands 自动创建为节点，并按顺序串联 edges
    */
   const applyCommands = useCallback((
     commands: Array<{ nodeType: string; params: Record<string, any>; confidence: number; description: string }>,
@@ -36,12 +36,21 @@ export default function App() {
   ) => {
     if (commands.length === 0) return;
 
+    const nodeIds: string[] = [];
     let appliedCount = 0;
+
     for (const cmd of commands) {
-      if (cmd.nodeType && cmd.confidence > 0.3) {
-        addNode(cmd.nodeType as any, undefined, cmd.params);
+      if (cmd.nodeType && cmd.confidence > 0.15) {
+        const id = addNode(cmd.nodeType as any, undefined, cmd.params);
+        nodeIds.push(id);
         appliedCount++;
       }
+    }
+
+    // 按顺序串联节点 edges（确保 workflow 引擎按正确顺序执行）
+    const { connectNodes } = useNodeStore.getState();
+    for (let i = 0; i < nodeIds.length - 1; i++) {
+      connectNodes(nodeIds[i], nodeIds[i + 1]);
     }
 
     if (appliedCount > 0) {
@@ -51,7 +60,7 @@ export default function App() {
           useNodeStore.getState().edges,
           source,
         );
-      }, 100);
+      }, 150);
     }
 
     console.log(`[AutoGrade] 自动应用了 ${appliedCount} 个调色节点 (${source})`);
