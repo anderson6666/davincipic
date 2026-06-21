@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AnalysisResult } from '../types';
 import type { GradingCommand, AutoGradeResult, ReviewVerdict } from '../ai/agnes/imageAnalyzer';
 
@@ -166,15 +167,17 @@ function createEmptyTasks(): BatchTask[] {
   }));
 }
 
-export const useBatchStore = create<BatchState & BatchActions>()((set, get) => ({
-  tasks: [],
-  sourceFile: null,
-  sourceThumbnail: null,
-  isProcessing: false,
-  isReviewing: false,
-  completedCount: 0,
-  reviewedCount: 0,
-  history: [],
+export const useBatchStore = create<BatchState & BatchActions>()(
+  persist(
+    (set, get) => ({
+      tasks: [],
+      sourceFile: null,
+      sourceThumbnail: null,
+      isProcessing: false,
+      isReviewing: false,
+      completedCount: 0,
+      reviewedCount: 0,
+      history: [],
 
   /** 上传一张源图片，初始化10个任务槽位 */
   setSourceImage: async (file: File) => {
@@ -293,4 +296,11 @@ export const useBatchStore = create<BatchState & BatchActions>()((set, get) => (
       sourceFile: null, // 历史恢复没有原始File对象
     });
   },
-}));
+  }),
+  {
+    name: 'batch-history',
+    /** 只持久化 history 字段（File 对象无法序列化，运行时状态不需要持久化） */
+    partialize: (state) => ({ history: state.history }),
+    storage: createJSONStorage(() => localStorage),
+  }
+));

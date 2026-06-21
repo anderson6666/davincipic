@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AnalysisResult } from '../types';
 import type { GradingCommand } from '../ai/agnes/imageAnalyzer';
 
@@ -36,18 +37,27 @@ function genId() {
   return `single_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export const useSingleHistoryStore = create<SingleHistoryState & SingleHistoryActions>()((set) => ({
-  entries: [],
+export const useSingleHistoryStore = create<SingleHistoryState & SingleHistoryActions>()(
+  persist(
+    (set) => ({
+      entries: [],
 
-  addEntry: (entry) =>
-    set((state) => ({
-      entries: [{ ...entry, id: genId(), timestamp: Date.now() }, ...state.entries].slice(0, 30),
-    })),
+      addEntry: (entry) =>
+        set((state) => ({
+          entries: [{ ...entry, id: genId(), timestamp: Date.now() }, ...state.entries].slice(0, 30),
+        })),
 
-  removeEntry: (id) =>
-    set((state) => ({
-      entries: state.entries.filter((e) => e.id !== id),
-    })),
+      removeEntry: (id) =>
+        set((state) => ({
+          entries: state.entries.filter((e) => e.id !== id),
+        })),
 
-  clearAll: () => set({ entries: [] }),
-}));
+      clearAll: () => set({ entries: [] }),
+    }),
+    {
+      name: 'single-history',
+      partialize: (state) => ({ entries: state.entries }),
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
