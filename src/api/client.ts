@@ -123,7 +123,7 @@ export class AgnesAPIClient {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(60000), // 60秒超时（移动端网络可能较慢）
+        signal: AbortSignal.timeout(360000), // 6分钟超时（移动端网络可能较慢）
       });
 
       if (response.ok) {
@@ -177,7 +177,7 @@ export class AgnesAPIClient {
         'Authorization': `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(120000), // 视觉模型分析图片可能较慢，给足时间
+      signal: AbortSignal.timeout(360000), // 6分钟超时，视觉模型分析图片可能较慢
     });
 
     if (!response.ok) {
