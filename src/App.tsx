@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import MainPanel from './components/layout/MainPanel';
@@ -12,6 +12,7 @@ import { useExport } from './hooks/useExport';
 import { useImageStore } from './store/useImageStore';
 import { useNodeStore } from './store/useNodeStore';
 import { useHistoryStore } from './store/useHistoryStore';
+import { useBatchStore } from './store/useBatchStore';
 
 /** 移动端 Tab 类型 */
 type MobileTab = 'preview' | 'nodes' | 'ai';
@@ -22,6 +23,8 @@ export default function App() {
   const { loadImage, startReview, triggerFileInput, fileInputRef } = useImageLoader();
   const { exportAsPNG, exportAsJPEG } = useExport();
   const { forceRender } = useRenderLoop(); // 关键：监听节点变化 → 触发渲染引擎
+  /** 多线程模式的上传input ref */
+  const batchFileRef = useRef<HTMLInputElement>(null);
 
   // Stores
   const resetImage = useImageStore((s) => s.reset);
@@ -113,6 +116,26 @@ export default function App() {
     await processImage(file);
   }, [processImage]);
 
+  /** 多线程模式文件上传处理 */
+  const handleBatchFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file?.type.startsWith('image/')) {
+      useBatchStore.getState().setSourceImage(file);
+    }
+    if (batchFileRef.current) batchFileRef.current.value = '';
+  }, []);
+
+  /**
+   * 统一上传入口：根据当前模式分发到单张/多线程
+   */
+  const handleUpload = useCallback(() => {
+    if (isBatchMode) {
+      batchFileRef.current?.click();
+    } else {
+      triggerFileInput();
+    }
+  }, [isBatchMode, triggerFileInput]);
+
   // 导出
   const handleExport = useCallback((format: 'png' | 'jpeg') => {
     if (format === 'png') { exportAsPNG(1.0); } else { exportAsJPEG(0.92); }
@@ -137,8 +160,9 @@ export default function App() {
   return (
     <div className="w-full h-full flex flex-col bg-studio-bg overflow-hidden">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      <input ref={batchFileRef} type="file" accept="image/*" className="hidden" onChange={handleBatchFileChange} />
       <Header
-        onUpload={triggerFileInput}
+        onUpload={handleUpload}
         onExport={handleExport}
         onReset={handleReset}
         isBatchMode={isBatchMode}
@@ -162,7 +186,7 @@ export default function App() {
           <div className="flex-1 overflow-hidden lg:hidden min-h-0">
             {mobileTab === 'preview' && <div className="w-full h-full"><Sidebar mobile /></div>}
             {mobileTab === 'nodes' && <div className="w-full h-full"><RightPanel mobile /></div>}
-            {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} mobile /></div>}
+            {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} onStartReview={startReview} mobile /></div>}
           </div>
 
           {/* 移动端底部导航 — 仅移动端显示 */}

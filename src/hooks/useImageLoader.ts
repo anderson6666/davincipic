@@ -35,7 +35,6 @@ export function useImageLoader() {
     setImage, setAnalysisResult, setLoading,
     setUploadProgress, setAnalysisProgress, setCurrentStage,
     setV1Result, setReviewing, setReviewProgress, setV2Result,
-    originalImageData, v1Result,
   } = useImageStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 防抖守卫 */
@@ -144,11 +143,17 @@ export function useImageLoader() {
       // 保存分析结果到 store
       setAnalysisResult(aiResult.analysis);
 
-      // 生成高清效果图并保存到单张模式历史记录
+      // 先保存V1结果到store（供复查使用，无论图片生成是否成功）
+      let resultImage = '';
       try {
-        const resultImage = generateGradedImage(originalImageData, aiResult.commands);
-        // 保存V1结果到store（供复查使用）
-        setV1Result(aiResult, resultImage);
+        resultImage = generateGradedImage(originalImageData, aiResult.commands);
+      } catch (imgErr) {
+        console.warn('[useImageLoader] V1效果图生成失败:', imgErr);
+      }
+      setV1Result(aiResult, resultImage || null);
+
+      // 保存历史记录
+      try {
         // 生成缩略图用于历史列表
         const thumbCanvas = document.createElement('canvas');
         let tw = img.naturalWidth, th = img.naturalHeight;
@@ -163,7 +168,7 @@ export function useImageLoader() {
           thumbnail,
           analysisResult: aiResult.analysis,
           commands: aiResult.commands,
-          resultImage,
+          resultImage: resultImage || undefined,
         });
       } catch (histErr) {
         console.warn('[useImageLoader] 历史记录保存失败:', histErr);
@@ -199,17 +204,23 @@ export function useImageLoader() {
 
   /**
    * 复查：将V1结果发给AI进行二次审查，生成V2精炼成品
+   * 使用 getState() 获取最新值，避免闭包陷阱
    */
   const startReview = useCallback(async () => {
     if (isReviewingRef.current) return;
-    if (!v1Result || !originalImageData) return;
+    // 始终从store获取最新值（不依赖闭包）
+    const { v1Result: _v1, originalImageData: _orig } = useImageStore.getState();
+    if (!_v1 || !_orig) {
+      console.warn('[useImageLoader] 复查条件不满足: v1Result=', !!_v1, 'originalImageData=', !!_orig);
+      return;
+    }
 
     isReviewingRef.current = true;
     setReviewing(true);
     setReviewProgress(0, '准备复查数据...');
 
     try {
-      const reviewResult = await reviewAndRefine(originalImageData, v1Result, (loaded, total) => {
+      const reviewResult = await reviewAndRefine(_orig, _v1, (loaded, total) => {
         const rawPct = Math.min(loaded / Math.max(total, 1), 1);
         setReviewProgress(Math.round(10 + rawPct * 80), getReviewStage(rawPct * 100));
       });
@@ -217,7 +228,7 @@ export function useImageLoader() {
       // 生成V2高清效果图
       let v2Image: string;
       try {
-        v2Image = generateGradedImage(originalImageData, reviewResult.v2Commands);
+        v2Image = generateGradedImage(_orig, reviewResult.v2Commands);
       } catch {
         v2Image = '';
       }
@@ -231,7 +242,7 @@ export function useImageLoader() {
       setReviewing(false);
       isReviewingRef.current = false;
     }
-  }, [v1Result, originalImageData, setReviewing, setReviewProgress, setV2Result]);
+  }, [setReviewing, setReviewProgress, setV2Result]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();
