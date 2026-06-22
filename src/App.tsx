@@ -19,7 +19,7 @@ type MobileTab = 'preview' | 'nodes' | 'ai';
 export default function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
   const [isBatchMode, setIsBatchMode] = useState(false);
-  const { loadImage, triggerFileInput, fileInputRef } = useImageLoader();
+  const { loadImage, startReview, triggerFileInput, fileInputRef } = useImageLoader();
   const { exportAsPNG, exportAsJPEG } = useExport();
   const { forceRender } = useRenderLoop(); // 关键：监听节点变化 → 触发渲染引擎
 
@@ -153,7 +153,7 @@ export default function App() {
           {/* ===== 桌面端布局 (lg+: ≥1024px) ===== */}
           <div className="flex-1 flex overflow-hidden hidden lg:flex">
             <Sidebar />
-            <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} />
+            <MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} onStartReview={startReview} />
             <RightPanel />
           </div>
           <BottomBar className="hidden lg:flex" />

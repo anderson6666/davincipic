@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useImageStore } from '../store/useImageStore';
-import { analyzeAndGrade, type AutoGradeResult } from '../ai/agnes/imageAnalyzer';
+import { analyzeAndGrade, reviewAndRefine, type AutoGradeResult } from '../ai/agnes/imageAnalyzer';
 import { generateGradedImage } from '../ai/agnes/gradePreview';
 import { useSingleHistoryStore } from '../store/useSingleHistoryStore';
 
@@ -22,12 +22,24 @@ function getAnalysisStage(pct: number): string {
   return '正在整理分析结果...';
 }
 
+function getReviewStage(pct: number): string {
+  if (pct < 20) return '首席调色师审查中...';
+  if (pct < 45) return '检测过度调整...';
+  if (pct < 70) return '生成精炼方案(V2)...';
+  if (pct < 90) return '对比V1差异分析...';
+  return '完成第二版成品...';
+}
+
 export function useImageLoader() {
   const {
     setImage, setAnalysisResult, setLoading,
     setUploadProgress, setAnalysisProgress, setCurrentStage,
+    setV1Result, setReviewing, setReviewProgress, setV2Result,
+    originalImageData, v1Result,
   } = useImageStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 防抖守卫 */
+  const isReviewingRef = useRef(false);
 
   /**
    * 加载图片 + 触发 AI 自动分析调色
@@ -135,6 +147,8 @@ export function useImageLoader() {
       // 生成高清效果图并保存到单张模式历史记录
       try {
         const resultImage = generateGradedImage(originalImageData, aiResult.commands);
+        // 保存V1结果到store（供复查使用）
+        setV1Result(aiResult, resultImage);
         // 生成缩略图用于历史列表
         const thumbCanvas = document.createElement('canvas');
         let tw = img.naturalWidth, th = img.naturalHeight;
@@ -181,13 +195,49 @@ export function useImageLoader() {
     } finally {
       setLoading(false);
     }
-  }, [setImage, setAnalysisResult, setLoading, setUploadProgress, setAnalysisProgress, setCurrentStage]);
+  }, [setImage, setAnalysisResult, setLoading, setUploadProgress, setAnalysisProgress, setCurrentStage, setV1Result]);
+
+  /**
+   * 复查：将V1结果发给AI进行二次审查，生成V2精炼成品
+   */
+  const startReview = useCallback(async () => {
+    if (isReviewingRef.current) return;
+    if (!v1Result || !originalImageData) return;
+
+    isReviewingRef.current = true;
+    setReviewing(true);
+    setReviewProgress(0, '准备复查数据...');
+
+    try {
+      const reviewResult = await reviewAndRefine(originalImageData, v1Result, (loaded, total) => {
+        const rawPct = Math.min(loaded / Math.max(total, 1), 1);
+        setReviewProgress(Math.round(10 + rawPct * 80), getReviewStage(rawPct * 100));
+      });
+
+      // 生成V2高清效果图
+      let v2Image: string;
+      try {
+        v2Image = generateGradedImage(originalImageData, reviewResult.v2Commands);
+      } catch {
+        v2Image = '';
+      }
+
+      setReviewProgress(100, '第二版完成');
+      setV2Result(reviewResult, v2Image);
+    } catch (error) {
+      console.error('[useImageLoader] 复查失败:', error);
+      setReviewProgress(0, '复查失败');
+    } finally {
+      setReviewing(false);
+      isReviewingRef.current = false;
+    }
+  }, [v1Result, originalImageData, setReviewing, setReviewProgress, setV2Result]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
-  return { loadImage, triggerFileInput, fileInputRef };
+  return { loadImage, startReview, triggerFileInput, fileInputRef };
 }
 
 export default useImageLoader;

@@ -1,21 +1,38 @@
 import { useState, useCallback, useRef } from 'react';
-import { Sparkles, Upload, ImagePlus } from 'lucide-react';
+import { Sparkles, Upload, ImagePlus, ShieldCheck, Loader2, Download } from 'lucide-react';
 import { useImageStore } from '../../store/useImageStore';
 import ProgressBar from '../ui/ProgressBar';
 
 interface MainPanelProps {
   onUpload: () => void;
-  onFileDrop?: (file: File) => void;  // 拖拽文件时直接回调
+  onFileDrop?: (file: File) => void;
+  onStartReview?: () => void;
   mobile?: boolean;
 }
 
 /** AI 分析结果面板 */
-function AIPanel() {
+function AIPanel({ onStartReview }: { onStartReview?: () => void }) {
   const analysisResult = useImageStore((s) => s.analysisResult);
   const isLoading = useImageStore((s) => s.isLoading);
   const uploadProgress = useImageStore((s) => s.uploadProgress);
   const analysisProgress = useImageStore((s) => s.analysisProgress);
   const currentStage = useImageStore((s) => s.currentStage);
+  /* 复查状态 */
+  const v1Result = useImageStore((s) => s.v1Result);
+  const v1ResultImage = useImageStore((s) => s.v1ResultImage);
+  const isReviewing = useImageStore((s) => s.isReviewing);
+  const reviewProgress = useImageStore((s) => s.reviewProgress);
+  const reviewStage = useImageStore((s) => s.reviewStage);
+  const v2Result = useImageStore((s) => s.v2Result);
+  const v2ResultImage = useImageStore((s) => s.v2ResultImage);
+
+  /** 下载base64图片 */
+  const downloadImage = (dataUrl: string, name: string) => {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = name;
+    a.click();
+  };
 
   if (isLoading) {
     const isUploading = uploadProgress < 100;
@@ -111,6 +128,92 @@ function AIPanel() {
           </ul>
         </div>
       )}
+
+      {/* ===== 复查区域 ===== */}
+      <div className="mt-5 space-y-3">
+        {/* V1效果图预览 */}
+        {v1ResultImage && !v2Result && (
+          <div className="rounded-lg overflow-hidden border border-studio-border">
+            <img src={v1ResultImage} alt="V1调色效果" className="w-full h-auto" />
+            <div className="px-3 py-2 bg-studio-bg flex items-center justify-between">
+              <span className="text-[10px] font-mono text-studio-text-dim">V1 调色效果</span>
+              <button onClick={() => downloadImage(v1ResultImage, 'v1_graded.jpg')}
+                className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                <Download size={11} /> 下载
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 复查按钮 */}
+        {!isReviewing && v1Result && !v2Result && onStartReview && (
+          <button onClick={onStartReview}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-mono font-semibold hover:shadow-lg hover:shadow-violet-500/25 transition-all"
+          >
+            <ShieldCheck size={14} /> 开始复查 — AI二次精炼
+          </button>
+        )}
+
+        {/* 复查进度 */}
+        {isReviewing && (
+          <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="text-violet-400 animate-spin" />
+              <span className="text-xs font-mono text-violet-300">首席调色师复查中...</span>
+            </div>
+            <ProgressBar progress={reviewProgress} label={reviewStage || '复查中...'} color="bg-violet-500" size="md" />
+          </div>
+        )}
+
+        {/* 复查完成：V2结果 */}
+        {v2Result && (
+          <div className="rounded-xl bg-gradient-to-r from-violet-500/8 to-fuchsia-500/8 border border-violet-500/20 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={15} className="text-violet-400" />
+              <h4 className="text-xs font-mono text-violet-300 font-semibold">第二版成品 (V2)</h4>
+            </div>
+
+            {/* V2效果图 */}
+            {v2ResultImage && (
+              <div className="rounded-lg overflow-hidden border border-violet-500/20">
+                <img src={v2ResultImage} alt="V2精炼效果" className="w-full h-auto" />
+                <div className="px-3 py-2 bg-studio-bg flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-violet-400/70">V2 精炼成品</span>
+                  <button onClick={() => downloadImage(v2ResultImage, 'v2_refined.jpg')}
+                    className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    <Download size={11} /> 下载V2
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 审查意见 */}
+            {v2Result.review && (
+              <div className="bg-studio-bg rounded-lg p-3">
+                <p className="text-[10px] font-mono text-studio-text-muted mb-1.5">审查意见</p>
+                <p className="text-xs text-studio-text-dim leading-relaxed">{v2Result.review.verdict}</p>
+              </div>
+            )}
+
+            {/* V2调色建议 */}
+            {v2Result.v2Suggestions && v2Result.v2Suggestions.length > 0 && (
+              <div>
+                <p className="text-[10px] font-mono text-studio-text-muted mb-1.5">V2 精炼建议</p>
+                <ul className="space-y-1">
+                  {v2Result.v2Suggestions.map((s, i) => (
+                    <li key={i} className="text-[11px] text-studio-text-dim flex items-start gap-1.5">
+                      <span className="text-violet-400 mt-0.5 shrink-0">&#x2022;</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -193,7 +296,7 @@ function UploadZone({ onUpload, onFileDrop, mobile }: { onUpload: () => void; on
 }
 
 /** 中央主面板 */
-export default function MainPanel({ onUpload, onFileDrop, mobile }: MainPanelProps) {
+export default function MainPanel({ onUpload, onFileDrop, onStartReview, mobile }: MainPanelProps) {
   const analysisResult = useImageStore((s) => s.analysisResult);
   const isLoading = useImageStore((s) => s.isLoading);
 
@@ -201,9 +304,9 @@ export default function MainPanel({ onUpload, onFileDrop, mobile }: MainPanelPro
     <main className={`flex-1 bg-studio-bg overflow-auto ${mobile ? 'p-3' : 'p-6'}`}>
       <div className={mobile ? 'space-y-4' : 'max-w-2xl mx-auto space-y-6'}>
         {isLoading ? (
-          <AIPanel />
+          <AIPanel onStartReview={onStartReview} />
         ) : analysisResult ? (
-          <AIPanel />
+          <AIPanel onStartReview={onStartReview} />
         ) : (
           <UploadZone onUpload={onUpload} onFileDrop={onFileDrop} mobile={mobile} />
         )}
