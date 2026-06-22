@@ -186,7 +186,7 @@ export default function App() {
           <div className="flex-1 overflow-hidden lg:hidden min-h-0">
             {mobileTab === 'preview' && <div className="w-full h-full"><Sidebar mobile /></div>}
             {mobileTab === 'nodes' && <div className="w-full h-full"><RightPanel mobile /></div>}
-            {mobileTab === 'ai' && <div className="w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} onStartReview={startReview} mobile /></div>}
+            {mobileTab === 'ai' && <div className="flex flex-col w-full h-full"><MainPanel onUpload={triggerFileInput} onFileDrop={handleFileDrop} onStartReview={startReview} mobile /></div>}
           </div>
 
           {/* 移动端底部导航 — 仅移动端显示 */}
