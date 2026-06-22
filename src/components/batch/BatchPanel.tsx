@@ -248,33 +248,34 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-studio-bg">
       {/* ===== 工具栏 ===== */}
-      <header className="shrink-0 border-b border-white/[0.06] px-4 py-3 flex items-center justify-between bg-white/[0.02] backdrop-blur-xl">
+      <header className="shrink-0 border-b border-studio-border px-4 py-3 flex items-center justify-between glass-panel top-highlight">
         {/* 左侧 */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Layers size={16} className="text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent" />
+              <Layers size={16} className="relative text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-mono font-bold text-white">多线程批量模式</h2>
-              <p className="text-[9px] text-white/30 hidden sm:block">1张图 · 10方案 · 并行AI调色</p>
+              <h2 className="text-sm font-mono font-bold text-studio-text">多线程批量模式</h2>
+              <p className="text-[9px] text-studio-text-muted hidden sm:block tracking-wider">1张图 · 10方案 · 并行AI调色</p>
             </div>
           </div>
 
           {/* 统计徽章 */}
           {tasks.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-white/40 bg-white/[0.04] border border-white/[0.06] rounded-full px-3 py-1">
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-studio-text-muted bg-studio-surface/60 border border-studio-border rounded-full px-3 py-1">
               {sourceFile && (
                 <>
                   <ImageIcon size={10} />
                   <span className="truncate max-w-[120px]">{sourceFile.name}</span>
-                  <span className="text-white/15">|</span>
+                  <span className="text-studio-text-muted/40">|</span>
                 </>
               )}
-              <span>{tasks.length}/10</span>
+              <span className="text-studio-text-dim">{tasks.length}/10</span>
               {activeCount > 0 && (
                 <>
-                  <span className="text-white/15">|</span>
+                  <span className="text-studio-text-muted/40">|</span>
                   <Loader2 size={10} className={`animate-spin ${isReviewing ? 'text-violet-400' : 'text-amber-400'}`} />
                   <span className={isReviewing ? 'text-violet-400' : 'text-amber-400'}>
                     {isReviewing ? `复查${reviewedCount}` : `处理${completedCount}`}
@@ -283,14 +284,14 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
               )}
               {completedCount > 0 && !isReviewing && (
                 <>
-                  <span className="text-white/15">|</span>
+                  <span className="text-studio-text-muted/40">|</span>
                   <CheckCircle2 size={10} className="text-emerald-400" />
                   <span className="text-emerald-400">{completedCount}</span>
                 </>
               )}
               {reviewedCount > 0 && (
                 <>
-                  <span className="text-white/15">|</span>
+                  <span className="text-studio-text-muted/40">|</span>
                   <ShieldCheck size={10} className="text-violet-400" />
                   <span className="text-violet-400">{reviewedCount}</span>
                 </>
@@ -309,11 +310,11 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
               <Layers size={11} /> 单张模式
             </button>
           )}
-          <div className="flex bg-white/[0.04] rounded-lg p-0.5 border border-white/[0.06]">
+          <div className="flex bg-studio-surface/60 rounded-lg p-0.5 border border-studio-border">
             {(['tasks', 'history'] as TabType[]).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1 text-[10px] rounded-md transition-all font-mono ${
-                  activeTab === tab ? 'bg-white/[0.1] text-white shadow-sm' : 'text-white/35 hover:text-white/60'
+                  activeTab === tab ? 'bg-studio-bg text-studio-text shadow-sm' : 'text-studio-text-muted hover:text-studio-text-dim'
                 }`}
               >
                 {tab === 'tasks' ? '任务列表' : '历史记录'}
@@ -335,27 +336,34 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
                 onDragLeave={handleDragLeave}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={handleDrop}
-                className={`cursor-pointer rounded-2xl sm:rounded-3xl border-2 border-dashed flex flex-col items-center justify-center min-h-[420px] transition-all duration-300 ${
+                className={`group cursor-pointer rounded-2xl sm:rounded-3xl border-2 border-dashed flex flex-col items-center justify-center min-h-[420px] transition-all duration-300 relative overflow-hidden ${
                   isDragOver
-                    ? 'border-cyan-400 bg-cyan-500/[0.04] scale-[1.005]'
-                    : 'border-white/[0.08] hover:border-cyan-400/40 hover:bg-white/[0.02]'
+                    ? 'border-cyan-400 bg-cyan-500/[0.05] scale-[1.005] shadow-glow-accent'
+                    : 'border-studio-border-light hover:border-cyan-400/50 hover:bg-studio-surface/30 hover:shadow-card'
                 }`}
               >
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-5 transition-all ${
-                  isDragOver ? 'bg-gradient-to-br from-cyan-500/20 to-blue-600/20 scale-110' : 'bg-white/[0.03] border border-white/[0.06]'
+                {/* 装饰性背景光晕 */}
+                <div className={`absolute inset-0 transition-opacity duration-500 pointer-events-none ${isDragOver ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-cyan-500/8 blur-3xl" />
+                </div>
+
+                <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 ${
+                  isDragOver
+                    ? 'bg-gradient-to-br from-cyan-500/25 to-blue-600/25 scale-110 shadow-glow-accent'
+                    : 'bg-gradient-to-br from-studio-surface to-studio-panel border border-studio-border group-hover:border-cyan-400/40 group-hover:scale-105'
                 }`}>
                   {isDragOver
                     ? <Sparkles size={32} className="text-cyan-400 animate-pulse" />
-                    : <Upload size={28} className="text-white/25" />
+                    : <Upload size={28} className="text-studio-text-muted group-hover:text-cyan-400 transition-colors" />
                   }
                 </div>
-                <p className="text-base text-white/80 font-medium mb-1">
+                <p className="relative text-base text-studio-text font-medium mb-1">
                   {isDragOver ? '释放以上传图片' : '点击或拖拽一张图片到此处'}
                 </p>
-                <p className="text-sm text-white/30 mb-6">上传后将自动创建 10 个并行调色任务</p>
-                <div className="flex flex-wrap justify-center gap-2">
+                <p className="relative text-sm text-studio-text-muted mb-6">上传后将自动创建 10 个并行调色任务</p>
+                <div className="relative flex flex-wrap justify-center gap-2">
                   {['10路并发', '自动缩略图', 'AI调色+复查', '高清下载'].map((tag) => (
-                    <span key={tag} className="px-2.5 py-1 text-[10px] rounded-full bg-white/[0.04] text-white/30 border border-white/[0.05]">
+                    <span key={tag} className="px-2.5 py-1 text-[10px] rounded-full bg-studio-surface/60 text-studio-text-muted border border-studio-border font-mono">
                       {tag}
                     </span>
                   ))}
@@ -365,11 +373,11 @@ export default function BatchPanel({ onToggleBatchMode }: { onToggleBatchMode?: 
               <>
                 {/* 源图预览条 */}
                 {sourceThumbnail && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                    <img src={sourceThumbnail} alt="源图" className="w-12 h-12 rounded-lg object-cover border border-white/[0.08]" />
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-studio-surface/40 border border-studio-border">
+                    <img src={sourceThumbnail} alt="源图" className="w-12 h-12 rounded-lg object-cover border border-studio-border-light" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-mono text-white/70 truncate">{sourceFile?.name}</p>
-                      <p className="text-[10px] text-white/30 mt-0.5">源图像 · 10个任务将基于此图并行处理</p>
+                      <p className="text-xs font-mono text-studio-text-dim truncate">{sourceFile?.name}</p>
+                      <p className="text-[10px] text-studio-text-muted mt-0.5">源图像 · 10个任务将基于此图并行处理</p>
                     </div>
                     <button onClick={() => clearAll()} disabled={isProcessing}
                       className="shrink-0 flex items-center gap-1 px-3 py-1.5 text-[10px] rounded-lg border border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-all disabled:opacity-30"

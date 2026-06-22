@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Download, Undo2, Redo2, RotateCcw, Key, CheckCircle2, XCircle, Loader2, Layers, History, Download as DownloadIcon, Trash2 } from 'lucide-react';
+import { Upload, Download, Undo2, Redo2, RotateCcw, Key, CheckCircle2, XCircle, Loader2, Layers, History, Download as DownloadIcon, Trash2, Sparkles } from 'lucide-react';
 import { agnesClient, type APIConnectionStatus } from '../../api/client';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useSingleHistoryStore } from '../../store/useSingleHistoryStore';
@@ -265,35 +265,40 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   return (
-    <header className="h-12 glass-panel border-b border-studio-border flex items-center justify-between px-3 lg:px-4 shrink-0 z-20">
+    <header className="h-12 glass-panel border-b border-studio-border flex items-center justify-between px-3 lg:px-5 shrink-0 z-20 top-highlight">
       {/* 左侧 Logo */}
       <div className="flex items-center gap-2 lg:gap-3">
+        {/* Logo 图标 — 渐变方块 */}
+        <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/30 shrink-0">
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
+          <Sparkles size={15} className="relative text-white" strokeWidth={2.5} />
+        </div>
         <div className="flex flex-col">
-          <h1 className="font-mono text-sm lg:text-base font-bold text-studio-accent tracking-widest drop-shadow-[0_0_10px_rgba(0,212,255,0.45)] leading-none">
+          <h1 className="font-mono text-sm lg:text-base font-bold tracking-widest leading-none text-gradient-accent">
             DavinciPic
           </h1>
-          <span className="text-[8px] lg:text-[9px] text-studio-text-dim -mt-0.5 tracking-widest uppercase hidden lg:inline">
+          <span className="text-[8px] lg:text-[9px] text-studio-text-muted -mt-0.5 tracking-[0.2em] uppercase hidden lg:inline">
             AI Color Grading
           </span>
         </div>
 
         {/* 模式切换标签 */}
-        <div className="hidden lg:flex items-center gap-0.5 ml-3 bg-studio-surface rounded-xl p-[3px] border border-studio-border relative overflow-hidden">
+        <div className="hidden lg:flex items-center gap-0.5 ml-3 bg-studio-surface/60 rounded-xl p-[3px] border border-studio-border relative overflow-hidden">
           {/* 始终存在的流动光效（选中时更亮） */}
           <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/8 via-violet-500/10 to-fuchsia-500/8 transition-opacity duration-300 ${isBatchMode ? 'opacity-100 animate-pulse' : 'opacity-60'}`} />
           <button
             onClick={onToggleBatchMode}
-            className={`relative px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all ${
+            className={`relative px-3 py-1 text-[10px] font-mono rounded-lg transition-all ${
               !isBatchMode
                 ? 'bg-studio-bg text-studio-text shadow-sm'
-                : 'text-studio-text-dim hover:text-studio-text'
+                : 'text-studio-text-muted hover:text-studio-text-dim'
             }`}
           >
             单张模式
           </button>
           <button
             onClick={onToggleBatchMode}
-            className={`relative px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`relative px-3 py-1 text-[10px] font-mono rounded-lg transition-all flex items-center gap-1.5 ${
               isBatchMode
                 ? 'bg-gradient-to-r from-cyan-500 to-violet-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.03] active:scale-[0.97]'
                 : 'bg-gradient-to-r from-cyan-500/15 to-violet-500/15 text-cyan-300/70 font-medium shadow-sm shadow-cyan-500/10 hover:shadow-cyan-500/20 hover:scale-[1.02] hover:text-cyan-300 active:scale-[0.98]'
@@ -312,7 +317,7 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
       <div className="flex items-center gap-1 lg:gap-1.5">
         <button
           onClick={onUpload}
-          className="w-9 h-9 rounded-lg bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group"
+          className="w-9 h-9 rounded-lg bg-studio-surface/70 border border-studio-border hover:border-studio-accent hover:bg-studio-surface hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group"
           title="上传图片"
         >
           <Upload size={16} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
@@ -321,18 +326,18 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
         {/* 桌面端显示导出和撤销/重做 */}
         <button
           onClick={() => onExport('png')}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group hidden lg:flex"
+          className="w-8 h-8 rounded-md bg-studio-surface/70 border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group hidden lg:flex"
           title="导出 PNG"
         >
           <Download size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
+        <div className="w-px h-5 bg-gradient-to-b from-transparent via-studio-border-light to-transparent mx-0.5 hidden lg:block" />
 
         <button
           onClick={() => undo()}
           disabled={!canUndo()}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
+          className="w-8 h-8 rounded-md bg-studio-surface/70 border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
           title="撤销 (Ctrl+Z)"
         >
           <Undo2 size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
@@ -341,23 +346,23 @@ export default function Header({ onUpload, onExport, onReset, isBatchMode = fals
         <button
           onClick={() => redo()}
           disabled={!canRedo()}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
+          className="w-8 h-8 rounded-md bg-studio-surface/70 border border-studio-border hover:border-studio-accent hover:shadow-glow-sm transition-all duration-200 flex items-center justify-center group disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-studio-border hidden lg:flex"
           title="重做 (Ctrl+Y)"
         >
           <Redo2 size={15} className="text-studio-text-dim group-hover:text-studio-accent transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
+        <div className="w-px h-5 bg-gradient-to-b from-transparent via-studio-border-light to-transparent mx-0.5 hidden lg:block" />
 
         <button
           onClick={onReset}
-          className="w-8 h-8 rounded-md bg-studio-surface border border-studio-border hover:border-studio-warning hover:shadow-glow-warning transition-all duration-200 flex items-center justify-center group hidden lg:flex"
+          className="w-8 h-8 rounded-md bg-studio-surface/70 border border-studio-border hover:border-studio-warning hover:shadow-glow-warning transition-all duration-200 flex items-center justify-center group hidden lg:flex"
           title="重置所有"
         >
           <RotateCcw size={15} className="text-studio-text-dim group-hover:text-studio-warning transition-colors" />
         </button>
 
-        <div className="w-px h-5 bg-studio-border mx-0.5 hidden lg:block" />
+        <div className="w-px h-5 bg-gradient-to-b from-transparent via-studio-border-light to-transparent mx-0.5 hidden lg:block" />
 
         {/* API Key 设置按钮 - 始终显示 */}
         <APIKeySettings />

@@ -39,10 +39,12 @@ function AIPanel({ onStartReview }: { onStartReview?: () => void }) {
     const activeProgress = isUploading ? uploadProgress : analysisProgress;
 
     return (
-      <div className="bg-studio-surface rounded-xl border border-studio-border p-6 space-y-5">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className={`animate-pulse ${isUploading ? 'text-studio-text-dim' : 'text-studio-warning'}`} />
-          <h3 className="text-sm font-mono text-studio-text">
+      <div className="bg-gradient-to-br from-studio-surface to-studio-panel rounded-2xl border border-studio-border p-6 space-y-5 shadow-card top-highlight">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isUploading ? 'bg-studio-accent/10' : 'bg-studio-warning/10'}`}>
+            <Sparkles size={16} className={`animate-pulse ${isUploading ? 'text-studio-accent' : 'text-studio-warning'}`} />
+          </div>
+          <h3 className="text-sm font-mono text-studio-text font-medium">
             {isUploading ? '正在加载图片' : 'Agnes AI 分析中'}
           </h3>
         </div>
@@ -75,37 +77,43 @@ function AIPanel({ onStartReview }: { onStartReview?: () => void }) {
   }
 
   return (
-    <div className="bg-studio-surface rounded-xl border border-studio-border p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles size={16} className="text-studio-warning" />
-        <h3 className="text-sm font-mono text-studio-text">Agnes AI 分析结果</h3>
+    <div className="bg-gradient-to-br from-studio-surface to-studio-panel rounded-2xl border border-studio-border p-6 shadow-card top-highlight">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-8 h-8 rounded-lg bg-studio-warning/10 flex items-center justify-center">
+          <Sparkles size={16} className="text-studio-warning" />
+        </div>
+        <h3 className="text-sm font-mono text-studio-text font-medium">Agnes AI 分析结果</h3>
+        <div className="flex-1 h-px bg-gradient-to-r from-studio-border to-transparent" />
       </div>
 
       {/* 基本信息 */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-studio-bg rounded-lg px-3 py-2.5 text-center">
-          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider">场景</p>
-          <p className="text-xs text-studio-text mt-1 font-medium">{analysisResult.sceneType}</p>
+      <div className="grid grid-cols-3 gap-2 mb-5">
+        <div className="bg-studio-bg/60 rounded-lg px-3 py-3 text-center border border-studio-border/50">
+          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider mb-1">场景</p>
+          <p className="text-xs text-studio-text font-medium">{analysisResult.sceneType}</p>
         </div>
-        <div className="bg-studio-bg rounded-lg px-3 py-2.5 text-center">
-          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider">亮度</p>
-          <p className="text-xs text-studio-text mt-1 font-medium">{analysisResult.brightness}</p>
+        <div className="bg-studio-bg/60 rounded-lg px-3 py-3 text-center border border-studio-border/50">
+          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider mb-1">亮度</p>
+          <p className="text-xs text-studio-text font-medium">{analysisResult.brightness}</p>
         </div>
-        <div className="bg-studio-bg rounded-lg px-3 py-2.5 text-center">
-          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider">对比度</p>
-          <p className="text-xs text-studio-text mt-1 font-medium">{analysisResult.contrastLevel}</p>
+        <div className="bg-studio-bg/60 rounded-lg px-3 py-3 text-center border border-studio-border/50">
+          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider mb-1">对比度</p>
+          <p className="text-xs text-studio-text font-medium">{analysisResult.contrastLevel}</p>
         </div>
       </div>
 
       {/* 主要颜色 */}
       {analysisResult.dominantColors.length > 0 && (
-        <div className="mb-4">
-          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider mb-2">主要颜色</p>
+        <div className="mb-5">
+          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-studio-text-muted/50" />
+            主要颜色
+          </p>
           <div className="flex gap-2">
             {analysisResult.dominantColors.map((color, i) => (
               <div
                 key={i}
-                className="w-9 h-9 rounded-md border border-studio-border shadow-sm"
+                className="w-10 h-10 rounded-lg border border-studio-border shadow-sm hover:scale-110 hover:shadow-glow-sm transition-all cursor-default"
                 style={{ backgroundColor: color }}
                 title={color}
               />
@@ -117,10 +125,13 @@ function AIPanel({ onStartReview }: { onStartReview?: () => void }) {
       {/* 调色建议 */}
       {analysisResult.suggestions.length > 0 && (
         <div>
-          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-wider mb-2">AI 调色建议</p>
-          <ul className="space-y-1.5">
+          <p className="text-[10px] text-studio-text-muted font-mono uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-studio-text-muted/50" />
+            AI 调色建议
+          </p>
+          <ul className="space-y-2">
             {analysisResult.suggestions.map((suggestion, i) => (
-              <li key={i} className="text-xs text-studio-text-dim flex items-start gap-2">
+              <li key={i} className="text-xs text-studio-text-dim flex items-start gap-2 bg-studio-bg/40 rounded-lg px-3 py-2 border border-studio-border/40">
                 <span className="text-studio-accent mt-0.5 shrink-0">&rarr;</span>
                 <span>{suggestion}</span>
               </li>
@@ -267,30 +278,51 @@ function UploadZone({ onUpload, onFileDrop, mobile }: { onUpload: () => void; on
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center ${mobile ? 'min-h-[240px] py-8' : 'min-h-[360px] py-12'}
+      className={`group cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center relative overflow-hidden
+        ${mobile ? 'min-h-[260px] py-8' : 'min-h-[400px] py-12'}
         ${isDragOver
-          ? 'border-studio-accent bg-studio-accent/5 scale-[1.01]'
-          : 'border-studio-border hover:border-studio-accent/50 hover:bg-studio-surface/50'
+          ? 'border-studio-accent bg-studio-accent/[0.06] scale-[1.01] shadow-glow-accent'
+          : 'border-studio-border-light hover:border-studio-accent/60 hover:bg-studio-surface/40 hover:shadow-card'
         }`}
     >
-      <div className={`transition-transform duration-300 ${isDragOver ? 'scale-110' : ''}`}>
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 transition-colors ${
-          isDragOver ? 'bg-studio-accent/15' : 'bg-studio-surface border border-studio-border'
+      {/* 装饰性背景光晕 */}
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${
+        isDragOver ? 'opacity-100' : ''
+      }`}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-studio-accent/8 blur-3xl" />
+      </div>
+
+      <div className={`relative transition-transform duration-300 ${isDragOver ? 'scale-110' : 'group-hover:scale-105'}`}>
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${
+          isDragOver
+            ? 'bg-gradient-to-br from-studio-accent/25 to-cyan-600/25 shadow-glow-accent'
+            : 'bg-gradient-to-br from-studio-surface to-studio-panel border border-studio-border group-hover:border-studio-accent/40'
         }`}>
           {isDragOver ? (
-            <ImagePlus size={mobile ? 24 : 28} className="text-studio-accent" />
+            <ImagePlus size={mobile ? 26 : 30} className="text-studio-accent animate-pulse" />
           ) : (
-            <Upload size={mobile ? 22 : 26} className="text-studio-text-muted" />
+            <Upload size={mobile ? 24 : 28} className="text-studio-text-muted group-hover:text-studio-accent transition-colors" />
           )}
         </div>
       </div>
 
-      <p className={`${mobile ? 'text-sm' : 'text-sm'} text-studio-text mb-1 font-medium`}>
+      <p className={`relative ${mobile ? 'text-sm' : 'text-base'} text-studio-text mb-1.5 font-medium`}>
         {isDragOver ? '释放以上传图片' : '点击或拖拽图片到此处'}
       </p>
-      <p className="text-xs text-studio-text-muted opacity-70">
+      <p className="relative text-xs text-studio-text-muted">
         AI 将自动分析并完成调色
       </p>
+
+      {/* 装饰性标签 */}
+      {!mobile && (
+        <div className="relative flex items-center gap-2 mt-6 opacity-60">
+          {['智能分析', '自动调色', '一键导出'].map((tag) => (
+            <span key={tag} className="px-2.5 py-1 text-[10px] rounded-full bg-studio-surface/60 text-studio-text-muted border border-studio-border font-mono">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

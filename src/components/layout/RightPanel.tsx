@@ -3,6 +3,7 @@ import { ReactFlow, Background, Controls, MiniMap, Node, Edge } from '@xyflow/re
 import '@xyflow/react/dist/style.css';
 import {
   SlidersHorizontal,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react';
 import { useNodeStore } from '@/store/useNodeStore';
@@ -83,7 +84,16 @@ export default function RightPanel({ mobile }: RightPanelProps) {
       {/* ===== 节点分类列表（桌面端和移动端均隐藏，仅保留编辑器和参数面板） ===== */}
 
       {/* ===== 节点编辑器区域 ===== */}
-      <div className="flex-1 min-h-0" style={{ height: mobile ? '45%' : '55%' }}>
+      <div className="flex-1 min-h-0 relative" style={{ height: mobile ? '45%' : '55%' }}>
+        {/* 编辑器标题条 */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 bg-gradient-to-b from-studio-panel to-transparent flex items-center gap-2 pointer-events-none">
+          <GitBranch size={12} className="text-studio-accent/70" />
+          <span className="text-[10px] font-mono text-studio-text-muted uppercase tracking-[0.15em]">节点流程</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-studio-border to-transparent" />
+          {nodes.length > 0 && (
+            <span className="text-[10px] font-mono text-studio-text-muted">{nodes.length}</span>
+          )}
+        </div>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -91,22 +101,22 @@ export default function RightPanel({ mobile }: RightPanelProps) {
           fitView
           attributionPosition="bottom-left"
           style={{
-            background: '#0d0d0d',
+            background: '#0a0b0e',
           }}
         >
-          <Background color="#2a2a2a" gap={20} size={1} />
+          <Background color="#232730" gap={20} size={1} />
           <Controls
             style={{
-              background: '#1a1a1a',
-              border: '1px solid #2a2a2a',
-              borderRadius: '6px',
+              background: 'rgba(17, 19, 24, 0.92)',
+              border: '1px solid #232730',
+              borderRadius: '8px',
             }}
           />
           <MiniMap
             style={{
-              background: '#1a1a1a',
-              border: '1px solid #2a2a2a',
-              borderRadius: '6px',
+              background: 'rgba(17, 19, 24, 0.92)',
+              border: '1px solid #232730',
+              borderRadius: '8px',
             }}
             maskColor="rgba(0, 0, 0, 0.8)"
             nodeColor={(node) =>
@@ -119,17 +129,25 @@ export default function RightPanel({ mobile }: RightPanelProps) {
       </div>
 
       {/* 参数调节面板 */}
-      <div className="border-t border-studio-border h-[45%] overflow-auto p-4">
+      <div className="border-t border-studio-border h-[45%] overflow-auto p-4 bg-studio-bg/30">
         {selectedNode ? (
           <div className="space-y-4">
             <h3 className="text-sm font-mono text-studio-text flex items-center gap-2">
-              <SlidersHorizontal size={14} className="text-studio-accent" />
-              参数调节 - {selectedNode.name}
+              <div className="w-6 h-6 rounded-md bg-studio-accent/10 flex items-center justify-center">
+                <SlidersHorizontal size={12} className="text-studio-accent" />
+              </div>
+              参数调节
+              <span className="text-studio-text-muted text-xs">/ {selectedNode.name}</span>
             </h3>
             <div className="space-y-3">
               {Object.entries(selectedNode.params).map(([key, value]) => (
-                <div key={key}>
-                  <label className="text-xs text-studio-text-dim block mb-1">{key}</label>
+                <div key={key} className="bg-studio-surface/40 rounded-lg p-3 border border-studio-border/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-studio-text-dim font-mono">{key}</label>
+                    <span className="text-[10px] text-studio-accent font-mono tabular-nums">
+                      {typeof value === 'number' ? value.toFixed(1) : value}
+                    </span>
+                  </div>
                   <input
                     type="range"
                     value={typeof value === 'number' ? value : 50}
@@ -143,8 +161,14 @@ export default function RightPanel({ mobile }: RightPanelProps) {
             </div>
           </div>
         ) : (
-          <div className="h-full flex items-center justify-center text-sm text-studio-text-muted">
-            <p>选择一个节点以查看和调整参数</p>
+          <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-studio-surface/60 border border-studio-border flex items-center justify-center">
+              <SlidersHorizontal size={22} className="text-studio-text-muted/50" />
+            </div>
+            <div>
+              <p className="text-sm text-studio-text-dim mb-1">选择一个节点</p>
+              <p className="text-[11px] text-studio-text-muted">点击上方流程图中的节点以查看和调整参数</p>
+            </div>
           </div>
         )}
       </div>
