@@ -1,7 +1,28 @@
-import { useState, useCallback, useRef } from 'react';
-import { Sparkles, Upload, ImagePlus, ShieldCheck, Loader2, Download } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Sparkles, Upload, ImagePlus, ShieldCheck, Loader2, Download, Shuffle } from 'lucide-react';
 import { useImageStore } from '../../store/useImageStore';
 import ProgressBar from '../ui/ProgressBar';
+
+/** 趣味提示语 */
+export const FUN_TIPS: Array<{ quote: string; note: string }> = [
+  { quote: '🐷 一猪生九子，连母十个样', note: '同一张图，AI 每次调出来的色都不一样——就像一窝小猪各有各的模样。这不是 bug，是 AI 的"个性"，请多多包容' },
+  { quote: '🍂 世界上没有两片完全相同的树叶', note: '也没有两次完全相同的调色。AI 每次都会重新"感受"你的图片，所以结果总有惊喜——偶尔也有惊吓，但这就是创作的魅力呀' },
+  { quote: '🎭 一千个读者有一千个哈姆雷特', note: 'AI 也不例外。同一张照片，它可能今天偏暖、明天偏冷，就像调色师的心情一样——请温柔对待这位"数字调色师"' },
+  { quote: '🎁 开盲盒的乐趣', note: '每次调色都像拆盲盒，你永远不知道下一个是什么风格。不满意就再来一次，总有让你眼前一亮的那一版' },
+  { quote: '🍳 调色如做菜，咸淡看手气', note: '大厨也有失手的时候，AI 也一样。如果这次太咸（过饱和）或太淡（太平），别急——再炒一盘就好' },
+];
+
+/** 轮播提示 hook */
+export function useRotatingTip(intervalMs = 7000) {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * FUN_TIPS.length));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % FUN_TIPS.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return FUN_TIPS[index];
+}
 
 interface MainPanelProps {
   onUpload: () => void;
@@ -331,10 +352,11 @@ function UploadZone({ onUpload, onFileDrop, mobile }: { onUpload: () => void; on
 export default function MainPanel({ onUpload, onFileDrop, onStartReview, mobile }: MainPanelProps) {
   const analysisResult = useImageStore((s) => s.analysisResult);
   const isLoading = useImageStore((s) => s.isLoading);
+  const tip = useRotatingTip(7000);
 
   return (
-    <main className={`flex-1 bg-studio-bg overflow-auto ${mobile ? 'p-3' : 'p-6'}`}>
-      <div className={mobile ? 'space-y-4' : 'max-w-2xl mx-auto space-y-6'}>
+    <main className={`flex-1 bg-studio-bg overflow-auto ${mobile ? 'p-3' : 'p-6'} flex flex-col`}>
+      <div className={`${mobile ? 'space-y-4' : 'max-w-2xl mx-auto w-full flex flex-col gap-6'} flex-1`}>
         {isLoading ? (
           <AIPanel onStartReview={onStartReview} />
         ) : analysisResult ? (
@@ -343,6 +365,18 @@ export default function MainPanel({ onUpload, onFileDrop, onStartReview, mobile 
           <UploadZone onUpload={onUpload} onFileDrop={onFileDrop} mobile={mobile} />
         )}
       </div>
+      {/* 电脑版：趣味提示在下方空白区域，放大显示 */}
+      {!mobile && !analysisResult && !isLoading && (
+        <div className="max-w-2xl mx-auto w-full mt-auto pt-6 pb-2">
+          <div className="bg-gradient-to-br from-studio-surface/60 to-studio-panel/40 border border-studio-border/50 rounded-2xl px-6 py-5 text-center shadow-card top-highlight">
+            <div className="flex items-center justify-center gap-2 mb-2.5">
+              <Shuffle size={16} className="text-studio-accent/70" />
+              <span className="text-sm font-semibold text-gradient-accent font-mono tracking-wide">{tip.quote}</span>
+            </div>
+            <p className="text-xs text-studio-text-dim leading-relaxed max-w-md mx-auto">{tip.note}</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

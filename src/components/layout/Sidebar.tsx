@@ -6,10 +6,12 @@ import {
   Columns,
   Image,
   BarChart3,
+  Shuffle,
 } from 'lucide-react';
 import { useImageStore } from '@/store/useImageStore';
 import ImagePreview from '@/components/preview/ImagePreview';
 import Histogram from '@/components/preview/Histogram';
+import { FUN_TIPS, useRotatingTip } from '@/components/layout/MainPanel';
 
 type CompareModeType = 'original' | 'result' | 'split';
 
@@ -20,7 +22,9 @@ interface SidebarProps {
 export default function Sidebar({ mobile }: SidebarProps) {
   const [zoom, setZoom] = useState(100);
   const [compareMode, setCompareMode] = useState<CompareModeType>('result');
-  const { fileName } = useImageStore();
+  const { fileName, originalImageData } = useImageStore();
+  const tip = useRotatingTip(7000);
+  const hasImage = !!originalImageData;
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 400));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 25));
@@ -28,6 +32,18 @@ export default function Sidebar({ mobile }: SidebarProps) {
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[380px]'} bg-studio-panel ${mobile ? '' : 'border-r'} border-studio-border flex flex-col overflow-hidden`}>
+      {/* 手机版首页：趣味提示（无图片时显示） */}
+      {mobile && !hasImage && (
+        <div className="shrink-0 px-3 pb-2">
+          <div className="bg-studio-surface/40 border border-studio-border/50 rounded-xl px-4 py-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1.5">
+              <Shuffle size={12} className="text-studio-accent/60" />
+              <span className="text-[11px] font-medium text-studio-accent/80 font-mono tracking-wide">{tip.quote}</span>
+            </div>
+            <p className="text-[10px] text-studio-text-muted leading-relaxed">{tip.note}</p>
+          </div>
+        </div>
+      )}
       {/* 图片预览区域 — 移动端占满空间 */}
       <div className={`flex-1 overflow-auto ${mobile ? 'p-2' : 'p-4'}`}>
         <ImagePreview zoom={zoom} compareMode={compareMode} />
