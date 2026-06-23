@@ -6,7 +6,8 @@
  *   Gamma:  中间调偏色 → 影响中间亮度区域
  *   Gain:   高光偏色   → 影响高亮度区域
  * + Master 控制各路整体亮度
- * 色相偏移通过 HSL 色相旋转实现
+ *
+ * 使用混合模式（lerp）而非纯加法，防止色块/像素块产生
  */
 
 import type { ColorWheelParams } from '../../types';
@@ -17,10 +18,10 @@ export function applyColorWheel(imageData: ImageData, params: ColorWheelParams):
   const output = new ImageData(width, height);
   const out = output.data;
 
-  // 将 H/S 值转换为 RGB 偏移量
-  const liftColor = hsToRgbOffset(params.lift.h, params.lift.s);
-  const gammaColor = hsToRgbOffset(params.gamma.h, params.gamma.s);
-  const gainColor = hsToRgbOffset(params.gain.h, params.gain.s);
+  // 将 H/S 值转换为 RGB 目标色（混合目标）
+  const liftTarget = hsToRgbTarget(params.lift.h, params.lift.s);
+  const gammaTarget = hsToRgbTarget(params.gamma.h, params.gamma.s);
+  const gainTarget = hsToRgbTarget(params.gain.h, params.gain.s);
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i] / 255;
@@ -30,50 +31,68 @@ export function applyColorWheel(imageData: ImageData, params: ColorWheelParams):
     // 计算亮度（使用 luminance）
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-    // ---- Lift（暗部）权重：低亮度时高 ----
-    const liftW = 1.0 - smoothstep3(0.0, 0.5, lum);
+    // ---- 使用更宽的权重过渡，避免色块边界 ----
+    // Lift（暗部）权重：低亮度时高，过渡更柔和
+    const liftW = 1.0 - smoothstep5(0.0, 0.6, lum);
 
-    // ---- Gamma（中间调）权重：中间亮度时高 ----
-    const gammaW = gaussianWeight(lum, 0.5, 0.25);
+    // Gamma（中间调）权重：中间亮度时高，sigma 更宽
+    const gammaW = gaussianWeight(lum, 0.5, 0.35);
 
-    // ---- Gain（高光）权重：高亮度时高 ----
-    const gainW = smoothstep3(0.5, 1.0, lum);
+    // Gain（高光）权重：高亮度时高，过渡更柔和
+    const gainW = smoothstep5(0.4, 1.0, lum);
 
-    // 应用三路偏色
-    r += liftW * liftColor.r * (1 + params.liftMaster / 100)
-       + gammaW * gammaColor.r * (1 + params.gammaMaster / 100)
-       + gainW * gainColor.r * (1 + params.gainMaster / 100);
-    g += liftW * liftColor.g * (1 + params.liftMaster / 100)
-       + gammaW * gammaColor.g * (1 + params.gammaMaster / 100)
-       + gainW * gainColor.g * (1 + params.gainMaster / 100);
-    b += liftW * liftColor.b * (1 + params.liftMaster / 100)
-       + gammaW * gammaColor.b * (1 + params.gammaMaster / 100)
-       + gainW * gainColor.b * (1 + params.gainMaster / 100);
+    // ---- 混合模式：将原色向目标色混合，而非加法偏移 ----
+    // 每路的混合强度 = s/100 * master系数
+    // 这样可以避免加法偏移导致的色块和量化问题
+    const liftBlend = (params.lift.s / 100) * (1 + params.liftMaster / 100) * liftW;
+    const gammaBlend = (params.gamma.s / 100) * (1 + params.gammaMaster / 100) * gammaW;
+    const gainBlend = (params.gain.s / 100) * (1 + params.gainMaster / 100) * gainW;
 
-    out[i]     = Math.round(clamp(r * 255, 0, 255));
-    out[i + 1] = Math.round(clamp(g * 255, 0, 255));
-    out[i + 2] = Math.round(clamp(b * 255, 0, 255));
+    // 对每路分别 lerp 原色到目标色
+    r = lerp(r, liftTarget.r, clamp(liftBlend, 0, 1));
+    g = lerp(g, liftTarget.g, clamp(liftBlend, 0, 1));
+    b = lerp(b, liftTarget.b, clamp(liftBlend, 0, 1));
+
+    r = lerp(r, gammaTarget.r, clamp(gammaBlend, 0, 1));
+    g = lerp(g, gammaTarget.g, clamp(gammaBlend, 0, 1));
+    b = lerp(b, gammaTarget.b, clamp(gammaBlend, 0, 1));
+
+    r = lerp(r, gainTarget.r, clamp(gainBlend, 0, 1));
+    g = lerp(g, gainTarget.g, clamp(gainBlend, 0, 1));
+    b = lerp(b, gainTarget.b, clamp(gainBlend, 0, 1));
+
+    // 加入微小抖动消除色块（1/256 级别的噪声，肉眼不可见但能打破量化条纹）
+    const dither = (Math.random() - 0.5) / 256;
+
+    out[i]     = Math.round(clamp((r + dither) * 255, 0, 255));
+    out[i + 1] = Math.round(clamp((g + dither) * 255, 0, 255));
+    out[i + 2] = Math.round(clamp((b + dither) * 255, 0, 255));
     out[i + 3] = data[i + 3];
   }
 
   return output;
 }
 
-/** 将色相(h: 0-360) 和 饱和度(s: 0-100) 转为 RGB 归一化偏移量 */
-function hsToRgbOffset(h: number, s: number): { r: number; g: number; b: number } {
-  if (s === 0) return { r: 0, g: 0, b: 0 };
-  const rgb = hslToRgb(h, s, 50); // 中等亮度作为基准
+/**
+ * 将色相和饱和度转换为 RGB 目标色（用于混合）
+ *
+ * 与旧版 hsToRgbOffset 不同，这里返回的是归一化的 RGB 颜色值，
+ * 用于 lerp 混合而非加法偏移，避免色块问题
+ */
+function hsToRgbTarget(h: number, s: number): { r: number; g: number; b: number } {
+  if (s === 0) return { r: 0.5, g: 0.5, b: 0.5 }; // 无偏色时目标=中性灰
+  const rgb = hslToRgb(h, s, 50);
   return {
-    r: (rgb.r / 127.5 - 1) * (s / 100),
-    g: (rgb.g / 127.5 - 1) * (s / 100),
-    b: (rgb.b / 127.5 - 1) * (s / 100),
+    r: rgb.r / 255,
+    g: rgb.g / 255,
+    b: rgb.b / 255,
   };
 }
 
-/** 简化的 smoothstep (三次 Hermite 插值) */
-function smoothstep3(edge0: number, edge1: number, x: number): number {
+/** 五次 smoothstep（比三次更平滑，减少色块边界） */
+function smoothstep5(edge0: number, edge1: number, x: number): number {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
+  return t * t * t * (t * (t * 6 - 15) + 10); // Ken Perlin's improved smoothstep
 }
 
 /** 高斯权重函数，center 为中心点，sigma 为宽度 */
