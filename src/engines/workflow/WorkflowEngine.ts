@@ -18,6 +18,7 @@ import { generatePowerWindowMask } from '../grading/PowerWindowMask';
 import { applyRGBMixer } from '../grading/RGBMixer';
 import { applyLUT } from '../grading/LUTProcessor';
 import { applyNoiseReduction } from '../grading/NoiseReduction';
+import { rgbToHsl, clamp } from '../../utils/colorUtils';
 
 /** 处理器映射表 */
 const PROCESSOR_MAP: Record<string, Function> = {
@@ -90,6 +91,11 @@ export function executeWorkflow(
       currentImageData = processor(currentImageData, node.params) as ImageData;
     }
   }
+
+  // ---- 3. 颜色多样性保护 ----
+  // 防止调色后直方图坍塌（所有颜色偏向单一色）
+  // 对色相偏移过大的像素，回混一定比例的原始颜色
+  currentImageData = preserveColorDiversity(originalImageData, currentImageData);
 
   return currentImageData;
 }
@@ -187,4 +193,70 @@ function cloneImageData(imageData: ImageData): ImageData {
   const copy = new ImageData(imageData.width, imageData.height);
   copy.data.set(imageData.data);
   return copy;
+}
+
+/**
+ * 颜色多样性保护
+ *
+ * 核心问题：调色后所有颜色偏向单一色，直方图从丰富分布坍塌为几条直线
+ * 解决方案：对每个像素检测色相偏移量，偏移越大则回混越多原始颜色
+ *
+ * 机制：
+ * - 色相偏移 < 10°：完全保留调色结果
+ * - 色相偏移 10°~30°：逐渐回混原始颜色（10°时 0%，30°时 30%）
+ * - 色相偏移 > 30°：回混 30%~50% 原始颜色
+ * - 饱和度大幅变化时也回混原始颜色
+ *
+ * 这样既保留了调色的整体方向感，又确保不同颜色不会坍塌到同一色相
+ */
+function preserveColorDiversity(original: ImageData, graded: ImageData): ImageData {
+  const { width, height } = graded;
+  const output = new ImageData(width, height);
+  const out = output.data;
+  const origData = original.data;
+  const gradData = graded.data;
+
+  for (let i = 0; i < gradData.length; i += 4) {
+    const or = origData[i], og = origData[i + 1], ob = origData[i + 2];
+    const gr = gradData[i], gg = gradData[i + 1], gb = gradData[i + 2];
+
+    // 转换到 HSL 比较色相偏移
+    const origHsl = rgbToHsl(or, og, ob);
+    const gradHsl = rgbToHsl(gr, gg, gb);
+
+    // 计算色相偏移（考虑环形距离）
+    let hueDiff = Math.abs(gradHsl.h - origHsl.h);
+    if (hueDiff > 180) hueDiff = 360 - hueDiff;
+
+    // 计算饱和度变化比例
+    const satRatio = origHsl.s > 5
+      ? Math.abs(gradHsl.s - origHsl.s) / origHsl.s
+      : 0;
+
+    // 根据偏移量计算回混比例
+    let blendBack = 0;
+
+    // 色相偏移越大，回混越多
+    if (hueDiff > 10) {
+      blendBack = Math.min(0.5, (hueDiff - 10) / 40 * 0.3);
+    }
+
+    // 饱和度变化过大也回混
+    if (satRatio > 0.3) {
+      blendBack = Math.max(blendBack, Math.min(0.4, (satRatio - 0.3) * 0.5));
+    }
+
+    // 低饱和度像素被强行拉高饱和度时，回混更多
+    if (origHsl.s < 10 && gradHsl.s > 20) {
+      blendBack = Math.max(blendBack, 0.4);
+    }
+
+    // 混合
+    out[i]     = Math.round(clamp(gr + (or - gr) * blendBack, 0, 255));
+    out[i + 1] = Math.round(clamp(gg + (og - gg) * blendBack, 0, 255));
+    out[i + 2] = Math.round(clamp(gb + (ob - gb) * blendBack, 0, 255));
+    out[i + 3] = gradData[i + 3];
+  }
+
+  return output;
 }

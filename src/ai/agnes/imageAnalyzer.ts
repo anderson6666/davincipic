@@ -3,6 +3,7 @@ import { agnesClient } from '../../api/client';
 import type { AgnesAPIResponse } from '../../api/types';
 import { SYSTEM_PROMPTS } from '../../api/prompts';
 import { generateGradedImage } from './gradePreview';
+import { clamp } from '../../utils/colorUtils';
 
 /** 调色命令（从 API 返回） */
 export interface GradingCommand {
@@ -99,7 +100,10 @@ function isValidNodeType(type: string): type is import('../../types').NodeType {
 }
 
 /**
- * 从 API 响应中提取调色命令
+ * 从 API 响应中提取调色命令，并对参数进行安全限制
+ *
+ * 核心原则：所有颜色调整参数不超过5（各自量程内），
+ * 防止颜色偏移过大导致直方图坍塌（颜色单一化）
  */
 function extractCommands(response: AgnesAPIResponse): GradingCommand[] {
   if (!response.commands || !Array.isArray(response.commands)) return [];
@@ -108,10 +112,144 @@ function extractCommands(response: AgnesAPIResponse): GradingCommand[] {
     .filter(cmd => cmd.nodeType && isValidNodeType(cmd.nodeType))
     .map(cmd => ({
       nodeType: cmd.nodeType,
-      params: cmd.params || {},
+      params: sanitizeColorParams(cmd.nodeType, cmd.params || {}),
       confidence: typeof cmd.confidence === 'number' ? Math.max(0, Math.min(1, cmd.confidence)) : 0.7,
       description: cmd.description || `${cmd.nodeType} 调整`,
     }));
+}
+
+/**
+ * 颜色参数安全限制
+ *
+ * 所有调色参数强制限制，防止：
+ * 1. 颜色偏移过大（直方图坍塌为几条直线）
+ * 2. 蓝紫偏色
+ * 3. 色彩失真（颜色被过滤掉）
+ *
+ * 核心规则：颜色调整强度不超过 5（在各自量程内）
+ */
+function sanitizeColorParams(nodeType: string, params: Record<string, unknown>): Record<string, unknown> {
+  const p = { ...params };
+
+  switch (nodeType) {
+    case 'colorWheel': {
+      // 饱和度(s)上限 5：防止所有像素被推向同一色相
+      for (const key of ['lift', 'gamma', 'gain'] as const) {
+        const wheel = p[key] as Record<string, number> | undefined;
+        if (wheel && typeof wheel.s === 'number') {
+          wheel.s = Math.min(wheel.s, 5);
+        }
+      }
+      // Master 控制也限制在 ±5
+      for (const key of ['liftMaster', 'gammaMaster', 'gainMaster'] as const) {
+        if (typeof p[key] === 'number') {
+          (p as any)[key] = clamp(p[key] as number, -5, 5);
+        }
+      }
+      break;
+    }
+
+    case 'primary': {
+      // 饱和度微调 ±0.15，防止色彩溢出
+      if (typeof p.saturation === 'number') {
+        p.saturation = clamp(p.saturation as number, -0.15, 0.15);
+      }
+      // 曝光保守 ±0.5
+      if (typeof p.exposure === 'number') {
+        p.exposure = clamp(p.exposure as number, -0.5, 0.5);
+      }
+      // 对比度保守 ±0.3
+      if (typeof p.contrast === 'number') {
+        p.contrast = clamp(p.contrast as number, -0.3, 0.3);
+      }
+      break;
+    }
+
+    case 'secondary': {
+      // 色相偏移 ±15°，防止颜色被旋转到同一方向
+      if (typeof p.hueShift === 'number') {
+        p.hueShift = clamp(p.hueShift as number, -15, 15);
+      }
+      // 饱和度调整 ±5
+      if (typeof p.satAdjust === 'number') {
+        p.satAdjust = clamp(p.satAdjust as number, -5, 5);
+      }
+      // 亮度调整 ±5
+      if (typeof p.lumAdjust === 'number') {
+        p.lumAdjust = clamp(p.lumAdjust as number, -5, 5);
+      }
+      // 全局饱和度 ±0.15
+      if (typeof p.saturation === 'number') {
+        p.saturation = clamp(p.saturation as number, -0.15, 0.15);
+      }
+      break;
+    }
+
+    case 'rgbMixer': {
+      // 主通道下限 90，交叉通道上限 5
+      // 这是防止直方图坍塌的关键：确保颜色空间不被压缩
+      const mainKeys: Record<string, string> = { redOut: 'r', greenOut: 'g', blueOut: 'b' };
+      for (const [outKey, mainKey] of Object.entries(mainKeys)) {
+        const channel = p[outKey] as Record<string, number> | undefined;
+        if (channel) {
+          // 主通道保底 90（保持该通道的原始色彩）
+          if (typeof channel[mainKey] === 'number') {
+            channel[mainKey] = Math.max(channel[mainKey], 90);
+          }
+          // 交叉通道上限 5（防止颜色混合导致色彩坍塌）
+          for (const crossKey of ['r', 'g', 'b'] as const) {
+            if (crossKey !== mainKey && typeof channel[crossKey] === 'number') {
+              channel[crossKey] = clamp(channel[crossKey], 0, 5);
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case 'lut': {
+      // LUT 强度上限 0.5，防止色彩空间被过度压缩
+      if (typeof p.intensity === 'number') {
+        p.intensity = Math.min(p.intensity as number, 0.5);
+      }
+      // 冷色调和青橙 LUT 更严格，上限 0.35
+      if (typeof p.lutName === 'string' && (p.lutName === 'cool' || p.lutName === 'tealorange')) {
+        if (typeof p.intensity === 'number') {
+          p.intensity = Math.min(p.intensity as number, 0.35);
+        }
+      }
+      break;
+    }
+
+    case 'curves': {
+      // 蓝通道偏差限制 ±0.03，防止蓝紫偏色
+      if (Array.isArray(p.blue)) {
+        p.blue = (p.blue as Array<{ x: number; y: number }>).map(pt => ({
+          x: pt.x,
+          y: clamp(pt.y, Math.max(0, pt.x - 0.03), Math.min(1, pt.x + 0.03)),
+        }));
+      }
+      // 其他通道偏差限制 ±0.05
+      for (const ch of ['red', 'green'] as const) {
+        if (Array.isArray(p[ch])) {
+          (p as any)[ch] = (p[ch] as Array<{ x: number; y: number }>).map(pt => ({
+            x: pt.x,
+            y: clamp(pt.y, Math.max(0, pt.x - 0.05), Math.min(1, pt.x + 0.05)),
+          }));
+        }
+      }
+      // Master 通道偏差限制 ±0.04
+      if (Array.isArray(p.master)) {
+        p.master = (p.master as Array<{ x: number; y: number }>).map(pt => ({
+          x: pt.x,
+          y: clamp(pt.y, Math.max(0, pt.x - 0.04), Math.min(1, pt.x + 0.04)),
+        }));
+      }
+      break;
+    }
+  }
+
+  return p;
 }
 
 /**

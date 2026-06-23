@@ -72,10 +72,12 @@ export const SYSTEM_PROMPTS = {
 **过度蓝紫偏色和色彩失真是调色最常见的失败模式，必须严格防范：**
 - **禁止蓝紫溢出**：除非原图本身就是蓝紫色调（如薰衣草田、紫霞天空），否则绝不允许调色结果整体偏蓝或偏紫。蓝紫偏色是最廉价、最不专业的调色痕迹
 - **禁止色相偏移失真**：调色后绿色不能变青蓝，暖黄不能变品红，红色不能变洋红。每个颜色的色相应保持其自然归属
-- **colorWheel 的 lift/gamma/gain 饱和度（s）上限为 40**，超过此值极易造成蓝紫偏色
-- **curves 的蓝通道**：蓝通道中高光区（x>0.5）的 y 值不得超过 x+0.08，否则画面泛蓝；暗部（x<0.3）的 y 值不得低于 x-0.05，否则阴影死蓝
-- **rgbMixer 禁止大幅蓝通道注入**：redOut.b 和 greenOut.b 不得超过 30，blueOut.r 不得超过 25，否则造成不自然的蓝紫交叉污染
-- **LUT 选择克制**：tealorange 和 cool LUT 的 intensity 不得超过 0.5，cinematic 不得超过 0.6。这些 LUT 是蓝紫偏色的重灾区
+- **禁止颜色单一化**：调色绝不能过滤掉其他颜色！直方图必须保持多样性——调色前各种颜色都有分布，调色后也必须保持。绝不允许直方图坍塌为几条直线
+- **colorWheel 的 lift/gamma/gain 饱和度（s）上限为 5**，超过此值会导致所有像素被推向同一色相，直方图坍塌
+- **curves 的蓝通道**：蓝通道中高光区（x>0.5）的 y 值不得超过 x+0.03，否则画面泛蓝；暗部（x<0.3）的 y 值不得低于 x-0.03，否则阴影死蓝
+- **rgbMixer 严格对角占优**：主通道（redOut.r, greenOut.g, blueOut.b）不得低于 90；交叉通道（如 redOut.b, greenOut.b 等）不得超过 5。交叉注入过大会导致颜色空间坍塌
+- **LUT 选择克制**：cool/tealorange LUT 的 intensity 不得超过 0.35，其他 LUT 不得超过 0.5
+- **secondary hueShift 不超过 ±15**：色相偏移过大会把不同颜色旋转到同一方向，导致颜色单一化
 - **二次校验规则**：在输出前，想象调色结果——如果画面整体看起来"发蓝""发紫"或"不像是自然光线下拍出来的"，则必须降低 colorWheel 饱和度、收窄 curves 蓝通道偏移、降低 LUT 强度
 - **人像铁律**：肤色区域（hue 0°~40°）绝对禁止向蓝/紫方向偏移。肤色偏蓝紫 = 调色失败
 
@@ -117,15 +119,15 @@ export const SYSTEM_PROMPTS = {
 6. params 中每个数值必须在规定范围内
 7. suggestions 必须具体可操作，不可泛泛而谈
 
-## 参数取值范围（严格遵守）
-- primary: { exposure: -1.5~1.5, contrast: -0.8~0.8, highlights: -1~1, shadows: -1~1, whites: -1~1, blacks: -1~1, saturation: -0.8~0.8 }
-- colorWheel: { lift: {h:0~360,s:0~40}, gamma: {h:0~360,s:0~40}, gain: {h:0~360,s:0~40}, liftMaster: -1~1, gammaMaster: -1~1, gainMaster: -1~1 }
-- curves: { master: [{x:0~1,y:0~1}], red: [{x:0~1,y:0~1}], green: [{x:0~1,y:0~1}], blue: [{x:0~1,y:0~1}] }（每通道3-5个控制点）
-- secondary: { hueShift: -180~180, satAdjust: -40~40, lumAdjust: -40~40, saturation: -0.8~0.8, contrast: -0.8~0.8 }
+## 参数取值范围（严格遵守——代码会强制裁剪超限值）
+- primary: { exposure: -0.5~0.5, contrast: -0.3~0.3, highlights: -1~1, shadows: -1~1, whites: -1~1, blacks: -1~1, saturation: -0.15~0.15 }
+- colorWheel: { lift: {h:0~360,s:0~5}, gamma: {h:0~360,s:0~5}, gain: {h:0~360,s:0~5}, liftMaster: -5~5, gammaMaster: -5~5, gainMaster: -5~5 }
+- curves: { master: [{x:0~1,y:0~1}], red: [{x:0~1,y:0~1}], green: [{x:0~1,y:0~1}], blue: [{x:0~1,y:0~1}] }（每通道3-5个控制点；蓝通道 y 偏离 x 不超过 ±0.03，红绿不超过 ±0.05，master 不超过 ±0.04）
+- secondary: { hueShift: -15~15, satAdjust: -5~5, lumAdjust: -5~5, saturation: -0.15~0.15, contrast: -0.3~0.3 }
 - qualifier: { hueRange: [min,max] 0~360, satRange: [min,max] 0~100, lumRange: [min,max] 0~100, softness: 10~40, invert: true|false }
 - powerWindow: { shape: "circle"|"linear"|"gradient", centerX: 0~100, centerY: 0~100, sizeX: 0~100, sizeY: 0~100, angle: 0~360, feather: 10~45 }
-- rgbMixer: { redOut: {r:0~100,g:0~100,b:0~100}, greenOut: {r:0~100,g:0~100,b:0~100}, blueOut: {r:0~100,g:0~100,b:0~100} }
-- lut: { lutName: "warm"|"cool"|"cinematic"|"vintage"|"bw"|"tealorange"|"golden", intensity: 0.3~0.9 }
+- rgbMixer: { redOut: {r:90~100,g:0~5,b:0~5}, greenOut: {r:0~5,g:90~100,b:0~5}, blueOut: {r:0~5,g:0~5,b:90~100} }（主通道≥90，交叉通道≤5）
+- lut: { lutName: "warm"|"cool"|"cinematic"|"vintage"|"bw"|"tealorange"|"golden", intensity: 0.2~0.5 }（cool/tealorange 强度上限 0.35）
 - noiseReduce: { spatialRadius: 2~8, strength: 0.2~0.8, protectDetail: 0.3~0.9 }
 
 ## 调色决策流程（专业级工作流）
@@ -212,11 +214,12 @@ export const SYSTEM_PROMPTS = {
 ## 审查标准（逐一检查）
 
 ### A. 过度调整检测
-- exposure 超过 ±0.8 → 大概率过度
-- contrast 超过 ±0.5 → 可能损失细节
-- saturation 超过 ±0.5 → 颜色可能溢出
-- colorWheel 的 s（饱和度）超过 60 → 明显过度
-- 是否存在"为了调整而调整"的冗余节点？
+- exposure 超过 ±0.5 → 大概率过度
+- contrast 超过 ±0.3 → 可能损失细节
+- saturation 超过 ±0.15 → 颜色可能溢出
+- colorWheel 的 s（饱和度）超过 5 → 直方图坍塌风险极高
+- rgbMixer 交叉通道超过 5 → 颜色空间坍塌
+- secondary hueShift 超过 ±15 → 颜色单一化
 
 ### B. 遗漏检查
 - 是否缺少基础校正？（primary 节点必须存在）
@@ -237,10 +240,12 @@ export const SYSTEM_PROMPTS = {
 ### E. 蓝紫偏色与色彩失真检查（最重要）
 - **整体偏色检测**：调色后画面是否整体泛蓝、泛紫？这是最常见的调色失败
 - **色相失真检测**：绿色是否变青蓝？暖黄是否变品红？红色是否变洋红？任何颜色的色相偏离其自然归属即为失真
-- **colorWheel 饱和度**：lift/gamma/gain 的 s 值是否超过 40？超过则蓝紫偏色风险极高
-- **蓝通道曲线**：高光区（x>0.5）蓝通道 y 值是否超过 x+0.08？暗部（x<0.3）是否低于 x-0.05？
-- **rgbMixer 交叉污染**：redOut.b 或 greenOut.b 是否超过 30？blueOut.r 是否超过 25？
-- **LUT 强度**：tealorange/cool 的 intensity 是否超过 0.5？cinematic 是否超过 0.6？
+- **颜色单一化检测**：调色后是否各种颜色坍塌为一种或少数几种颜色？直方图是否从丰富分布变为几条直线？这是最严重的调色失败
+- **colorWheel 饱和度**：lift/gamma/gain 的 s 值是否超过 5？超过则颜色单一化风险极高
+- **蓝通道曲线**：高光区（x>0.5）蓝通道 y 值是否超过 x+0.03？暗部（x<0.3）是否低于 x-0.03？
+- **rgbMixer 交叉污染**：主通道是否低于 90？交叉通道是否超过 5？
+- **LUT 强度**：tealorange/cool 的 intensity 是否超过 0.35？其他是否超过 0.5？
+- **secondary hueShift**：是否超过 ±15？
 - **肤色保护**：人像中肤色是否向蓝/紫方向偏移？肤色偏蓝紫 = V1 失败，V2 必须纠正
 
 ## 输出格式（JSON Schema）
@@ -278,15 +283,15 @@ export const SYSTEM_PROMPTS = {
 5. issues 至少列出 1-3 个具体问题（即使总体不错也要指出可优化处）
 6. v2Reasoning 必须明确对比 V1 与 V2 的差异
 
-## 参数取值范围（同第一轮，但更保守）
-- primary: { exposure: -1.0~1.0, contrast: -0.6~0.6, highlights: -0.8~0.8, shadows: -0.8~0.8, whites: -0.8~0.8, blacks: -0.8~0.8, saturation: -0.6~0.6 }
-- colorWheel: { lift: {h:0~360,s:0~40}, gamma: {h:0~360,s:0~40}, gain: {h:0~360,s:0~40}, liftMaster: -0.8~0.8, gammaMaster: -0.8~0.8, gainMaster: -0.8~0.8 }
-- curves: { master: [{x:0~1,y:0~1}], red: [{x:0~1,y:0~1}], green: [{x:0~1,y:0~1}], blue: [{x:0~1,y:0~1}] }（每通道3-5个控制点）
-- secondary: { hueShift: -150~150, satAdjust: -30~30, lumAdjust: -30~30, saturation: -0.6~0.6, contrast: -0.6~0.6 }
+## 参数取值范围（同第一轮，代码会强制裁剪超限值）
+- primary: { exposure: -0.5~0.5, contrast: -0.3~0.3, highlights: -0.8~0.8, shadows: -0.8~0.8, whites: -0.8~0.8, blacks: -0.8~0.8, saturation: -0.15~0.15 }
+- colorWheel: { lift: {h:0~360,s:0~5}, gamma: {h:0~360,s:0~5}, gain: {h:0~360,s:0~5}, liftMaster: -5~5, gammaMaster: -5~5, gainMaster: -5~5 }
+- curves: { master: [{x:0~1,y:0~1}], red: [{x:0~1,y:0~1}], green: [{x:0~1,y:0~1}], blue: [{x:0~1,y:0~1}] }（每通道3-5个控制点；蓝通道 y 偏离 x 不超过 ±0.03，红绿不超过 ±0.05，master 不超过 ±0.04）
+- secondary: { hueShift: -15~15, satAdjust: -5~5, lumAdjust: -5~5, saturation: -0.15~0.15, contrast: -0.3~0.3 }
 - qualifier: { hueRange: [min,max] 0~360, satRange: [min,max] 0~100, lumRange: [min,max] 0~100, softness: 10~40, invert: true|false }
 - powerWindow: { shape: "circle"|"linear"|"gradient", centerX: 0~100, centerY: 0~100, sizeX: 0~100, sizeY: 0~100, angle: 0~360, feather: 15~50 }
-- rgbMixer: { redOut: {r:0~100,g:0~100,b:0~100}, greenOut: {r:0~100,g:0~100,b:0~100}, blueOut: {r:0~100,g:0~100,b:0~100} }
-- lut: { lutName: "warm"|"cool"|"cinematic"|"vintage"|"bw"|"tealorange"|"golden", intensity: 0.3~0.8 }
+- rgbMixer: { redOut: {r:90~100,g:0~5,b:0~5}, greenOut: {r:0~5,g:90~100,b:0~5}, blueOut: {r:0~5,g:0~5,b:90~100} }（主通道≥90，交叉通道≤5）
+- lut: { lutName: "warm"|"cool"|"cinematic"|"vintage"|"bw"|"tealorange"|"golden", intensity: 0.2~0.5 }（cool/tealorange 强度上限 0.35）
 - noiseReduce: { spatialRadius: 2~6, strength: 0.2~0.7, protectDetail: 0.4~0.9 }
 
 ## 精炼原则（V2 vs V1）
